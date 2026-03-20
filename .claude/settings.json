@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "nano-banana": {
+      "command": "npx",
+      "args": ["nano-banana-mcp"],
+      "env": {
+        "GEMINI_API_KEY": "AIzaSyCym4AD-5Bnm8qSJ56aZLjjH8LNWfPQAJ0"
+      }
+    }
+  }
+}
