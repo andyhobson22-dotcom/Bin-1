@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XRT Boundless — Split-Screen Hero</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+  :root {
+    --font: 'DM Sans', system-ui, sans-serif;
+    --purple-deep: #1E0F4E;
+    --purple: #2D1A6E;
+    --purple-mid: #4A2FA0;
+    --teal: #2DD4BF;
+    --teal-dark: #1FB8A5;
+    --aubergine: #1C0A2E;
+    --white: #FFFFFF;
+    --text-muted: rgba(255,255,255,0.6);
+    --progress: 0;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--aubergine);
+    color: var(--white);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ========== SPLIT HERO ========== */
+  .split-hero {
+    height: 400vh;
+    position: relative;
+  }
+
+  .split-sticky {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    width: 100%;
+    overflow: hidden;
+    background: var(--aubergine);
+  }
+
+  /* --- Halves --- */
+  .split-left,
+  .split-right {
+    position: absolute;
+    top: 0;
+    width: 50%;
+    height: 100%;
+    overflow: hidden;
+    will-change: transform, opacity, filter;
+  }
+
+  .split-left { left: 0; }
+  .split-right { right: 0; }
+
+  .split-left img,
+  .split-right img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scale(1.05);
+    display: block;
+  }
+
+  /* --- Overlay gradients for inner-edge blur effect --- */
+  .split-overlay-left,
+  .split-overlay-right {
+    position: absolute;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0;
+    will-change: opacity;
+  }
+
+  .split-overlay-left {
+    background: linear-gradient(to left, var(--aubergine) 0%, transparent 60%);
+  }
+
+  .split-overlay-right {
+    background: linear-gradient(to right, var(--aubergine) 0%, transparent 60%);
+  }
+
+  /* --- Text overlays --- */
+  .split-text-left,
+  .split-text-right {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 5;
+    text-align: center;
+    width: 100%;
+    padding: 0 2rem;
+    will-change: opacity;
+  }
+
+  .split-text-left h2,
+  .split-text-right h2 {
+    font-size: clamp(32px, 4vw, 48px);
+    font-weight: 700;
+    color: var(--white);
+    text-shadow: 0 2px 20px rgba(0,0,0,0.6), 0 0 40px rgba(0,0,0,0.3);
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+  }
+
+  .split-text-left p,
+  .split-text-right p {
+    font-size: clamp(14px, 1.5vw, 16px);
+    color: rgba(255,255,255,0.85);
+    text-shadow: 0 1px 10px rgba(0,0,0,0.5);
+    font-weight: 400;
+  }
+
+  /* --- Centre glow line --- */
+  .split-centre-glow {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 100%;
+    background: rgba(255,255,255,0.15);
+    z-index: 10;
+    will-change: opacity, box-shadow, width;
+    transition: none;
+  }
+
+  /* --- Boundless reveal --- */
+  .split-reveal {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 8;
+    opacity: 0;
+    will-change: opacity, transform;
+    pointer-events: none;
+  }
+
+  .split-reveal.active {
+    pointer-events: auto;
+  }
+
+  .split-reveal img {
+    width: min(90%, 1100px);
+    height: auto;
+    max-height: 55vh;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 20px 80px rgba(45,212,191,0.15), 0 0 120px rgba(45,212,191,0.08);
+  }
+
+  .reveal-text {
+    text-align: center;
+    margin-top: 1.5rem;
+    will-change: opacity, transform;
+  }
+
+  .reveal-text h2 {
+    font-size: clamp(40px, 5vw, 56px);
+    font-weight: 700;
+    color: var(--teal);
+    letter-spacing: -0.03em;
+    margin-bottom: 0.4rem;
+  }
+
+  .reveal-text p {
+    font-size: clamp(15px, 1.8vw, 18px);
+    color: rgba(255,255,255,0.8);
+    font-weight: 400;
+  }
+
+  /* --- CTA --- */
+  .reveal-cta {
+    text-align: center;
+    margin-top: 2rem;
+    opacity: 0;
+    will-change: opacity, transform;
+  }
+
+  .reveal-stats {
+    font-size: clamp(13px, 1.4vw, 15px);
+    color: var(--text-muted);
+    margin-bottom: 1.25rem;
+    letter-spacing: 0.02em;
+  }
+
+  .btn-teal,
+  .btn-ghost {
+    display: inline-block;
+    padding: 0.85rem 2rem;
+    border-radius: 8px;
+    font-family: var(--font);
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    cursor: pointer;
+  }
+
+  .btn-teal {
+    background: var(--teal);
+    color: var(--purple-deep);
+    border: 2px solid var(--teal);
+    margin-right: 0.75rem;
+  }
+
+  .btn-teal:hover {
+    background: var(--teal-dark);
+    border-color: var(--teal-dark);
+    transform: translateY(-1px);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--white);
+    border: 2px solid rgba(255,255,255,0.3);
+  }
+
+  .btn-ghost:hover {
+    border-color: rgba(255,255,255,0.6);
+    transform: translateY(-1px);
+  }
+
+  /* --- Scroll hint --- */
+  .scroll-hint {
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 13px;
+    color: var(--text-muted);
+    z-index: 15;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    will-change: opacity;
+    animation: scrollPulse 2s ease-in-out infinite;
+  }
+
+  .scroll-hint::after {
+    content: '';
+    width: 1px;
+    height: 24px;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.4), transparent);
+    animation: scrollLine 2s ease-in-out infinite;
+  }
+
+  @keyframes scrollPulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  @keyframes scrollLine {
+    0% { transform: scaleY(0); transform-origin: top; }
+    50% { transform: scaleY(1); transform-origin: top; }
+    51% { transform-origin: bottom; }
+    100% { transform: scaleY(0); transform-origin: bottom; }
+  }
+
+  /* --- Floating particles --- */
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+    background: var(--teal);
+    pointer-events: none;
+    z-index: 9;
+    opacity: 0;
+    will-change: transform, opacity;
+  }
+
+  .particle--1 { width: 4px; height: 4px; left: 45%; animation: particleFloat 6s ease-in-out infinite; }
+  .particle--2 { width: 3px; height: 3px; left: 52%; animation: particleFloat 8s ease-in-out 1s infinite; }
+  .particle--3 { width: 5px; height: 5px; left: 48%; animation: particleFloat 7s ease-in-out 2s infinite; }
+  .particle--4 { width: 3px; height: 3px; left: 55%; animation: particleFloat 9s ease-in-out 0.5s infinite; }
+  .particle--5 { width: 4px; height: 4px; left: 43%; animation: particleFloat 7.5s ease-in-out 3s infinite; }
+  .particle--6 { width: 2px; height: 2px; left: 50%; animation: particleFloat 6.5s ease-in-out 1.5s infinite; }
+
+  @keyframes particleFloat {
+    0% {
+      transform: translateY(0) translateX(0);
+      opacity: 0;
+    }
+    10% {
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 0.2;
+    }
+    100% {
+      transform: translateY(-200px) translateX(20px);
+      opacity: 0;
+    }
+  }
+
+  /* --- After hero content placeholder --- */
+  .after-hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--aubergine);
+    padding: 4rem 2rem;
+  }
+
+  .after-hero p {
+    font-size: 20px;
+    color: var(--text-muted);
+    max-width: 600px;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  /* ========== MOBILE ========== */
+  @media (max-width: 768px) {
+    .split-hero {
+      height: 350vh;
+    }
+
+    .split-left,
+    .split-right {
+      width: 50%;
+    }
+
+    .split-text-left h2,
+    .split-text-right h2 {
+      font-size: 28px;
+    }
+
+    .split-text-left p,
+    .split-text-right p {
+      font-size: 13px;
+    }
+
+    .split-reveal img {
+      width: 95%;
+      max-height: 40vh;
+    }
+
+    .reveal-text h2 {
+      font-size: 36px;
+    }
+
+    .btn-teal,
+    .btn-ghost {
+      display: block;
+      width: 80%;
+      max-width: 280px;
+      margin: 0.4rem auto;
+      text-align: center;
+    }
+
+    .btn-teal {
+      margin-right: auto;
+    }
+  }
+
+  /* ========== REDUCED MOTION ========== */
+  @media (prefers-reduced-motion: reduce) {
+    .split-hero {
+      height: auto !important;
+    }
+
+    .split-sticky {
+      position: relative !important;
+      height: auto !important;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4rem 2rem;
+    }
+
+    .split-left,
+    .split-right,
+    .split-centre-glow,
+    .scroll-hint,
+    .particle {
+      display: none !important;
+    }
+
+    .split-reveal {
+      position: relative !important;
+      opacity: 1 !important;
+      transform: none !important;
+      pointer-events: auto !important;
+    }
+
+    .split-reveal img {
+      transform: none !important;
+    }
+
+    .reveal-text,
+    .reveal-cta {
+      opacity: 1 !important;
+      transform: none !important;
+    }
+
+    .scroll-hint {
+      display: none !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="split-hero" id="splitHero">
+  <div class="split-sticky">
+
+    <!-- Left half: Imaginal -->
+    <div class="split-left" id="splitLeft">
+      <img src="images/imaginal.svg" alt="Imaginal exposure — abstract, foggy, disconnected">
+      <div class="split-overlay-left" id="overlayLeft"></div>
+      <div class="split-text-left" id="textLeft">
+        <h2>Imaginal</h2>
+        <p>Too abstract to connect with</p>
+      </div>
+    </div>
+
+    <!-- Right half: In Vivo -->
+    <div class="split-right" id="splitRight">
+      <img src="images/invivo.svg" alt="In vivo exposure — overwhelming, intense, too real">
+      <div class="split-overlay-right" id="overlayRight"></div>
+      <div class="split-text-right" id="textRight">
+        <h2>In vivo</h2>
+        <p>Too overwhelming to face</p>
+      </div>
+    </div>
+
+    <!-- Centre glow line -->
+    <div class="split-centre-glow" id="centreGlow"></div>
+
+    <!-- Floating particles -->
+    <div class="particle particle--1" id="p1"></div>
+    <div class="particle particle--2" id="p2"></div>
+    <div class="particle particle--3" id="p3"></div>
+    <div class="particle particle--4" id="p4"></div>
+    <div class="particle particle--5" id="p5"></div>
+    <div class="particle particle--6" id="p6"></div>
+
+    <!-- Boundless reveal -->
+    <div class="split-reveal" id="splitReveal">
+      <img src="images/boundless-reveal.svg" alt="Boundless therapy environment — safe, controlled, effective" loading="lazy">
+      <div class="reveal-text" id="revealText">
+        <h2>Boundless</h2>
+        <p>The bridge between imagining it and facing it</p>
+      </div>
+      <div class="reveal-cta" id="revealCta">
+        <p class="reveal-stats">74% reliable recovery &middot; 5 sessions &middot; No new pathway</p>
+        <a href="#" class="btn-teal">Book a discovery call</a>
+        <a href="#evidence" class="btn-ghost">See the evidence</a>
+      </div>
+    </div>
+
+    <!-- Scroll indicator -->
+    <div class="scroll-hint" id="scrollHint">Scroll to explore</div>
+
+  </div>
+</div>
+
+<!-- Placeholder for rest of page -->
+<div class="after-hero">
+  <p>The rest of the XRT Boundless website continues below&hellip;</p>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // Check reduced motion preference
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReducedMotion) return;
+
+  // Elements
+  const hero = document.getElementById('splitHero');
+  const left = document.getElementById('splitLeft');
+  const right = document.getElementById('splitRight');
+  const overlayLeft = document.getElementById('overlayLeft');
+  const overlayRight = document.getElementById('overlayRight');
+  const textLeft = document.getElementById('textLeft');
+  const textRight = document.getElementById('textRight');
+  const centreGlow = document.getElementById('centreGlow');
+  const reveal = document.getElementById('splitReveal');
+  const revealText = document.getElementById('revealText');
+  const revealCta = document.getElementById('revealCta');
+  const scrollHint = document.getElementById('scrollHint');
+  const particles = document.querySelectorAll('.particle');
+
+  let ticking = false;
+
+  // Utility: clamp
+  function clamp(val, min, max) {
+    return Math.min(max, Math.max(min, val));
+  }
+
+  // Utility: map range
+  function mapRange(value, inMin, inMax, outMin, outMax) {
+    const t = clamp((value - inMin) / (inMax - inMin), 0, 1);
+    return outMin + t * (outMax - outMin);
+  }
+
+  // Utility: ease in-out cubic
+  function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  function updateAnimation() {
+    const rect = hero.getBoundingClientRect();
+    const viewportH = window.innerHeight;
+    const scrollRunway = hero.offsetHeight - viewportH;
+
+    if (scrollRunway <= 0) return;
+
+    // Progress 0 → 1 through the sticky section
+    const rawProgress = clamp(-rect.top / scrollRunway, 0, 1);
+
+    // STATE 1: THE SPLIT (0 – 0.15)
+    // STATE 2: THE BLUR  (0.15 – 0.40)
+    // STATE 3: THE REVEAL (0.40 – 0.70)
+    // STATE 4: FULL REVEAL + CTA (0.70 – 1.0)
+
+    // --- Text fade out (0 → 0.20) ---
+    const textOpacity = mapRange(rawProgress, 0.05, 0.25, 1, 0);
+    textLeft.style.opacity = textOpacity;
+    textRight.style.opacity = textOpacity;
+
+    // --- Scroll hint fade (0 → 0.15) ---
+    const hintOpacity = mapRange(rawProgress, 0.05, 0.15, 1, 0);
+    scrollHint.style.opacity = hintOpacity;
+
+    // --- Inner-edge blur overlays (0.10 → 0.40) ---
+    const overlayOpacity = mapRange(rawProgress, 0.10, 0.45, 0, 1);
+    overlayLeft.style.opacity = overlayOpacity;
+    overlayRight.style.opacity = overlayOpacity;
+
+    // --- Image blur (0.15 → 0.50) ---
+    const blurAmount = mapRange(rawProgress, 0.15, 0.55, 0, 14);
+    left.style.filter = 'blur(' + blurAmount + 'px)';
+    right.style.filter = 'blur(' + blurAmount + 'px)';
+
+    // --- Drift apart (0.15 → 0.65) ---
+    const driftEased = easeInOutCubic(mapRange(rawProgress, 0.15, 0.65, 0, 1));
+    const leftDrift = -driftEased * 20; // percentage
+    const rightDrift = driftEased * 20;
+    left.style.transform = 'translateX(' + leftDrift + '%)';
+    right.style.transform = 'translateX(' + rightDrift + '%)';
+
+    // --- Halves fade out (0.55 → 0.75) ---
+    const halvesOpacity = mapRange(rawProgress, 0.55, 0.75, 1, 0);
+    left.style.opacity = halvesOpacity;
+    right.style.opacity = halvesOpacity;
+
+    // --- Centre glow (0.10 → 0.45) ---
+    const glowIntensity = mapRange(rawProgress, 0.10, 0.45, 0, 1);
+    const glowWidth = mapRange(rawProgress, 0.10, 0.45, 2, 6);
+    centreGlow.style.width = glowWidth + 'px';
+    centreGlow.style.background = 'rgba(45,212,191,' + (0.15 + glowIntensity * 0.6) + ')';
+    centreGlow.style.boxShadow = '0 0 ' + (glowIntensity * 40) + 'px ' + (glowIntensity * 15) + 'px rgba(45,212,191,' + (glowIntensity * 0.4) + ')';
+    // Fade out centre glow as reveal takes over
+    const glowFade = mapRange(rawProgress, 0.55, 0.70, 1, 0);
+    centreGlow.style.opacity = glowFade;
+
+    // --- Boundless reveal (0.35 → 0.70) ---
+    const revealProgress = mapRange(rawProgress, 0.35, 0.70, 0, 1);
+    const revealEased = easeInOutCubic(revealProgress);
+    const revealScale = 0.9 + revealEased * 0.1;
+    reveal.style.opacity = revealEased;
+    reveal.style.transform = 'scale(' + revealScale + ')';
+
+    if (revealEased > 0.1) {
+      reveal.classList.add('active');
+    } else {
+      reveal.classList.remove('active');
+    }
+
+    // --- Particles visibility (tied to reveal) ---
+    const particleOpacity = mapRange(rawProgress, 0.40, 0.60, 0, 1);
+    for (let i = 0; i < particles.length; i++) {
+      particles[i].style.opacity = particleOpacity > 0 ? '' : '0';
+      particles[i].style.bottom = '40%';
+      if (particleOpacity <= 0) {
+        particles[i].style.animationPlayState = 'paused';
+      } else {
+        particles[i].style.animationPlayState = 'running';
+      }
+    }
+
+    // --- CTA fade in (0.72 → 0.90) ---
+    const ctaProgress = mapRange(rawProgress, 0.72, 0.92, 0, 1);
+    const ctaEased = easeInOutCubic(ctaProgress);
+    revealCta.style.opacity = ctaEased;
+    revealCta.style.transform = 'translateY(' + ((1 - ctaEased) * 20) + 'px)';
+
+    ticking = false;
+  }
+
+  function onScroll() {
+    if (!ticking) {
+      ticking = true;
+      requestAnimationFrame(updateAnimation);
+    }
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', updateAnimation, { passive: true });
+
+  // Initial state
+  updateAnimation();
+})();
+</script>
+
+</body>
+</html>

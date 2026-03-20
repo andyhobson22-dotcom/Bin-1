@@ -1,0 +1,159 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2400 2400" width="2400" height="2400">
+  <defs>
+    <linearGradient id="harshLight" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#D4850A" stop-opacity="0.4"/>
+      <stop offset="50%" stop-color="#8B4513" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#1C0A2E" stop-opacity="0.8"/>
+    </linearGradient>
+    <linearGradient id="streetLight" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#FFB347" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#1C0A2E" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="sharpGlow">
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
+    <filter id="medGlow">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+    <filter id="crowdBlur">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+  </defs>
+
+  <!-- Dark base -->
+  <rect width="2400" height="2400" fill="#1C0A2E"/>
+
+  <!-- Harsh amber lighting from above -->
+  <rect width="2400" height="2400" fill="url(#harshLight)"/>
+
+  <!-- Ceiling/tunnel structure suggesting underground -->
+  <rect x="0" y="0" width="2400" height="300" fill="#0D0618"/>
+  <path d="M0 300 Q1200 200 2400 300 L2400 400 Q1200 300 0 400Z" fill="#150B28"/>
+
+  <!-- Harsh overhead lights -->
+  <ellipse cx="600" cy="250" rx="100" ry="30" fill="#FFB347" opacity="0.7" filter="url(#medGlow)"/>
+  <ellipse cx="1200" cy="220" rx="120" ry="35" fill="#FFCC66" opacity="0.8" filter="url(#medGlow)"/>
+  <ellipse cx="1800" cy="250" rx="100" ry="30" fill="#FFB347" opacity="0.7" filter="url(#medGlow)"/>
+
+  <!-- Light cones -->
+  <polygon points="500,280 700,280 900,1200 300,1200" fill="url(#streetLight)" opacity="0.15"/>
+  <polygon points="1100,250 1300,250 1500,1200 900,1200" fill="url(#streetLight)" opacity="0.2"/>
+  <polygon points="1700,280 1900,280 2100,1200 1500,1200" fill="url(#streetLight)" opacity="0.15"/>
+
+  <!-- Platform/ground -->
+  <rect x="0" y="1600" width="2400" height="800" fill="#1E0F3E"/>
+  <rect x="0" y="1600" width="2400" height="4" fill="#D4850A" opacity="0.3"/>
+
+  <!-- Dense crowd of figures - overwhelming, pressing close -->
+  <!-- Row 1 - closest, largest, most oppressive -->
+  <g opacity="0.9">
+    <ellipse cx="200" cy="1200" rx="140" ry="350" fill="#2A1550" filter="url(#crowdBlur)"/>
+    <circle cx="200" cy="820" r="60" fill="#2A1550" filter="url(#crowdBlur)"/>
+
+    <ellipse cx="500" cy="1150" rx="130" ry="380" fill="#321A60"/>
+    <circle cx="500" cy="740" r="55" fill="#321A60"/>
+
+    <ellipse cx="780" cy="1180" rx="135" ry="360" fill="#2E1858"/>
+    <circle cx="780" cy="790" r="58" fill="#2E1858"/>
+
+    <ellipse cx="1050" cy="1130" rx="140" ry="390" fill="#351C65"/>
+    <circle cx="1050" cy="710" r="60" fill="#351C65"/>
+
+    <ellipse cx="1350" cy="1160" rx="130" ry="370" fill="#2C1755"/>
+    <circle cx="1350" cy="760" r="55" fill="#2C1755"/>
+
+    <ellipse cx="1620" cy="1140" rx="138" ry="385" fill="#331B62"/>
+    <circle cx="1620" cy="725" r="58" fill="#331B62"/>
+
+    <ellipse cx="1900" cy="1190" rx="135" ry="360" fill="#2A1550"/>
+    <circle cx="1900" cy="800" r="56" fill="#2A1550"/>
+
+    <ellipse cx="2200" cy="1170" rx="140" ry="370" fill="#2E1858"/>
+    <circle cx="2200" cy="770" r="60" fill="#2E1858"/>
+  </g>
+
+  <!-- Row 2 - mid distance, still dense -->
+  <g opacity="0.7">
+    <ellipse cx="100" cy="1050" rx="100" ry="280" fill="#3A2070"/>
+    <circle cx="100" cy="745" r="45" fill="#3A2070"/>
+
+    <ellipse cx="350" cy="1020" rx="95" ry="290" fill="#3E2278"/>
+    <circle cx="350" cy="700" r="42" fill="#3E2278"/>
+
+    <ellipse cx="650" cy="1040" rx="98" ry="275" fill="#3C2174"/>
+    <circle cx="650" cy="738" r="44" fill="#3C2174"/>
+
+    <ellipse cx="920" cy="1010" rx="100" ry="295" fill="#402580"/>
+    <circle cx="920" cy="685" r="45" fill="#402580"/>
+
+    <ellipse cx="1200" cy="1030" rx="95" ry="280" fill="#3D2376"/>
+    <circle cx="1200" cy="722" r="43" fill="#3D2376"/>
+
+    <ellipse cx="1480" cy="1020" rx="100" ry="290" fill="#3B2172"/>
+    <circle cx="1480" cy="700" r="45" fill="#3B2172"/>
+
+    <ellipse cx="1750" cy="1045" rx="98" ry="278" fill="#3F2479"/>
+    <circle cx="1750" cy="740" r="44" fill="#3F2479"/>
+
+    <ellipse cx="2050" cy="1025" rx="96" ry="285" fill="#3C2174"/>
+    <circle cx="2050" cy="712" r="43" fill="#3C2174"/>
+
+    <ellipse cx="2350" cy="1035" rx="100" ry="280" fill="#3A2070"/>
+    <circle cx="2350" cy="728" r="45" fill="#3A2070"/>
+  </g>
+
+  <!-- Row 3 - far, compressed -->
+  <g opacity="0.5">
+    <ellipse cx="250" cy="850" rx="70" ry="200" fill="#4A2A8A"/>
+    <circle cx="250" cy="628" r="32" fill="#4A2A8A"/>
+
+    <ellipse cx="500" cy="840" rx="65" ry="195" fill="#4C2C8E"/>
+    <circle cx="500" cy="623" r="30" fill="#4C2C8E"/>
+
+    <ellipse cx="750" cy="855" rx="68" ry="198" fill="#4B2B8C"/>
+    <circle cx="750" cy="635" r="31" fill="#4B2B8C"/>
+
+    <ellipse cx="1000" cy="835" rx="70" ry="200" fill="#4D2D90"/>
+    <circle cx="1000" cy="613" r="32" fill="#4D2D90"/>
+
+    <ellipse cx="1250" cy="845" rx="66" ry="196" fill="#4A2A8A"/>
+    <circle cx="1250" cy="627" r="30" fill="#4A2A8A"/>
+
+    <ellipse cx="1500" cy="838" rx="70" ry="200" fill="#4C2C8E"/>
+    <circle cx="1500" cy="616" r="32" fill="#4C2C8E"/>
+
+    <ellipse cx="1750" cy="850" rx="67" ry="197" fill="#4B2B8C"/>
+    <circle cx="1750" cy="631" r="31" fill="#4B2B8C"/>
+
+    <ellipse cx="2000" cy="842" rx="70" ry="200" fill="#4A2A8A"/>
+    <circle cx="2000" cy="620" r="32" fill="#4A2A8A"/>
+  </g>
+
+  <!-- Harsh light reflections on ground -->
+  <ellipse cx="600" cy="1700" rx="200" ry="30" fill="#D4850A" opacity="0.15" filter="url(#medGlow)"/>
+  <ellipse cx="1200" cy="1680" rx="250" ry="35" fill="#FFCC66" opacity="0.2" filter="url(#medGlow)"/>
+  <ellipse cx="1800" cy="1700" rx="200" ry="30" fill="#D4850A" opacity="0.15" filter="url(#medGlow)"/>
+
+  <!-- Red/orange threat accents -->
+  <rect x="0" y="1595" width="2400" height="10" fill="#CC4400" opacity="0.2" filter="url(#sharpGlow)"/>
+
+  <!-- Oppressive vignette -->
+  <radialGradient id="vignette" cx="50%" cy="50%" r="60%">
+    <stop offset="0%" stop-color="#1C0A2E" stop-opacity="0"/>
+    <stop offset="100%" stop-color="#0D0618" stop-opacity="0.7"/>
+  </radialGradient>
+  <rect width="2400" height="2400" fill="url(#vignette)"/>
+
+  <!-- Sharp noise/grain overlay suggestion via small elements -->
+  <g opacity="0.05">
+    <rect x="100" y="500" width="2" height="2" fill="#FFF"/>
+    <rect x="300" y="700" width="2" height="2" fill="#FFF"/>
+    <rect x="500" y="400" width="2" height="2" fill="#FFF"/>
+    <rect x="800" y="600" width="2" height="2" fill="#FFF"/>
+    <rect x="1100" y="450" width="2" height="2" fill="#FFF"/>
+    <rect x="1400" y="550" width="2" height="2" fill="#FFF"/>
+    <rect x="1700" y="650" width="2" height="2" fill="#FFF"/>
+    <rect x="2000" y="500" width="2" height="2" fill="#FFF"/>
+    <rect x="2200" y="700" width="2" height="2" fill="#FFF"/>
+  </g>
+</svg>
