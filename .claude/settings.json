@@ -4,7 +4,7 @@
       "command": "npx",
       "args": ["nano-banana-mcp"],
       "env": {
-        "GEMINI_API_KEY": "AIzaSyCym4AD-5Bnm8qSJ56aZLjjH8LNWfPQAJ0"
+        "GEMINI_API_KEY": "AIzaSyCyN2fCaopHxxPFIHvPhqPc38NTecb6ch4"
       }
     }
   }
