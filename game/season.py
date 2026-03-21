@@ -166,7 +166,7 @@ def advance_round():
     return results
 
 
-def play_single_match(fixture_id):
+def play_single_match(fixture_id, player_tactics=None):
     """Play a specific match (for the player's team)."""
     db = get_db()
     fixture = db.execute("SELECT * FROM fixtures WHERE id = ?", (fixture_id,)).fetchone()
@@ -176,6 +176,7 @@ def play_single_match(fixture_id):
 
     state = db.execute("SELECT * FROM game_state WHERE id = 1").fetchone()
     season = state['season']
+    player_team_id = state['player_team_id']
 
     home_team = get_team(fixture['home_team_id'])
     away_team = get_team(fixture['away_team_id'])
@@ -186,9 +187,19 @@ def play_single_match(fixture_id):
         db.close()
         return None
 
+    # Apply player tactics to the correct side
+    home_tactics = None
+    away_tactics = None
+    if player_tactics:
+        if fixture['home_team_id'] == player_team_id:
+            home_tactics = player_tactics
+        elif fixture['away_team_id'] == player_team_id:
+            away_tactics = player_tactics
+
     result = simulate_match(
         home_team, away_team,
         home_players[:15], away_players[:15],
+        home_tactics=home_tactics, away_tactics=away_tactics,
         fixture_id=fixture_id
     )
 

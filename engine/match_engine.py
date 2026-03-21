@@ -16,6 +16,8 @@ from engine.tactics import (
     default_tactics, calculate_style_fit, apply_tactical_modifiers,
     KICK_TENDENCY, KICK_TYPE, KICK_ZONES, PLAY_OFF,
     OFFLOAD_FREQUENCY, RUCK_SUPPORT,
+    ROLES_WITH_BALL, ROLES_WITHOUT_BALL, DROP_BEHIND_ROLES,
+    default_role_for_position,
 )
 
 
@@ -78,6 +80,53 @@ class MatchState:
 
     # ── Context builders ───────────────────────────────────────────
 
+    def _get_role(self, position, side, with_ball=True):
+        """Get the assigned role config for a position."""
+        tactics = self.home_tactics if side == 'home' else self.away_tactics
+        role_dict = 'roles_with_ball' if with_ball else 'roles_without_ball'
+        role_key = tactics.get(role_dict, {}).get(position)
+        if not role_key:
+            defaults = default_role_for_position(position)
+            role_key = defaults[0] if with_ball else defaults[1]
+        source = ROLES_WITH_BALL if with_ball else ROLES_WITHOUT_BALL
+        return source.get(role_key, {})
+
+    def _aggregate_role_modifier(self, side, with_ball=True):
+        """Aggregate role modifiers across all 15 players."""
+        players = self.home_players[:15] if side == 'home' else self.away_players[:15]
+        total_fatigue_mod = 0.0
+        total_carry_freq = 0.0
+        total_pass_tend = 0.0
+        total_tackle_agg = 0.0
+        total_discipline_mod = 0.0
+        total_overlap_risk = 0.0
+        count = 0
+
+        for p in players:
+            pos = p.get('position', '')
+            role = self._get_role(pos, side, with_ball)
+            if not role:
+                continue
+            count += 1
+            total_fatigue_mod += role.get('fatigue_mod', 0)
+            if with_ball:
+                total_carry_freq += role.get('carry_frequency', 0.2)
+                total_pass_tend += role.get('pass_tendency', 0.3)
+            else:
+                total_tackle_agg += role.get('tackle_aggression', 0.5)
+                total_discipline_mod += role.get('discipline_mod', 0)
+                total_overlap_risk += role.get('overlap_risk', 0)
+
+        n = max(count, 1)
+        return {
+            'avg_fatigue_mod': total_fatigue_mod / n,
+            'avg_carry_freq': total_carry_freq / n,
+            'avg_pass_tend': total_pass_tend / n,
+            'avg_tackle_agg': total_tackle_agg / n,
+            'avg_discipline_mod': total_discipline_mod / n,
+            'avg_overlap_risk': total_overlap_risk / n,
+        }
+
     def _build_atk_context(self):
         """Build the attacking context dict passed to event resolvers."""
         side = self.possession
@@ -96,6 +145,15 @@ class MatchState:
         # Ruck support
         ruck_cfg = RUCK_SUPPORT.get(tactics.get('ruck_support', 'normal'), {})
 
+        # Position role aggregates
+        role_mods = self._aggregate_role_modifier(side, with_ball=True)
+
+        # Check for flair variance (fly half on full flair)
+        flair_variance = 0
+        fly_half_role = self._get_role('fly_half', side, with_ball=True)
+        if fly_half_role.get('flair_variance'):
+            flair_variance = fly_half_role['flair_variance']
+
         return {
             'home_bonus': HOME_ADVANTAGE_BONUS if side == 'home' else 0,
             'fatigue': fatigue,
@@ -105,18 +163,51 @@ class MatchState:
             'offload_turnover_mod': offload_cfg.get('turnover_risk_mod', 0),
             'offload_big_play_mod': offload_cfg.get('big_play_mod', 0),
             'ruck_speed_mod': ruck_cfg.get('ruck_speed_mod', 0),
+            # Position role data
+            'avg_carry_freq': role_mods['avg_carry_freq'],
+            'avg_pass_tend': role_mods['avg_pass_tend'],
+            'role_fatigue_mod': role_mods['avg_fatigue_mod'],
+            'flair_variance': flair_variance,
         }
 
     def _build_def_context(self):
         """Build the defending context dict."""
         side = 'away' if self.possession == 'home' else 'home'
+        tactics = self.home_tactics if side == 'home' else self.away_tactics
         fatigue = self.home_fatigue if side == 'home' else self.away_fatigue
         fit = self.home_fit if side == 'home' else self.away_fit
+
+        # Position role aggregates (defence)
+        role_mods = self._aggregate_role_modifier(side, with_ball=False)
+
+        # Drop-behind system — how many players covering the backfield
+        drop_behind = tactics.get('drop_behind', [{'position': 'fullback', 'role': 'full_cover'}])
+        kick_cover_total = 0.0
+        for db in drop_behind:
+            db_role = DROP_BEHIND_ROLES.get(db.get('role', 'full_cover'), {})
+            kick_cover_total += db_role.get('kick_cover', 0.2)
+
+        # Jackal chance from any jacklers in the pack
+        jackal_chance = 0.0
+        players = self.home_players[:15] if side == 'home' else self.away_players[:15]
+        for p in players:
+            pos = p.get('position', '')
+            role = self._get_role(pos, side, with_ball=False)
+            if role.get('jackal_chance', 0) > 0:
+                # Scale by player's actual tackling/game_sense
+                player_skill = (p.get('tackling', 50) + p.get('game_sense', 50)) / 200
+                jackal_chance += role['jackal_chance'] * player_skill
 
         return {
             'home_bonus': HOME_ADVANTAGE_BONUS if side == 'home' else 0,
             'fatigue': fatigue,
             'style_fit': fit,
+            'avg_tackle_agg': role_mods['avg_tackle_agg'],
+            'avg_discipline_mod': role_mods['avg_discipline_mod'],
+            'avg_overlap_risk': role_mods['avg_overlap_risk'],
+            'kick_cover': kick_cover_total,
+            'jackal_chance': jackal_chance,
+            'role_fatigue_mod': role_mods['avg_fatigue_mod'],
         }
 
     def _calc_play_off_bonus(self, side, play_off_cfg):
@@ -247,6 +338,10 @@ class MatchState:
             # Ruck support modifier
             stamina_save = ruck_cfg.get('stamina_save', 0)
             drain *= (1 - stamina_save)
+
+            # Position role fatigue modifier (aggressive roles drain faster)
+            role_mods = self._aggregate_role_modifier(side, with_ball=True)
+            drain *= (1 + role_mods['avg_fatigue_mod'])
 
             # Squad stamina reduces fatigue accumulation
             players = self.home_players[:15] if side == 'home' else self.away_players[:15]
@@ -479,13 +574,20 @@ def _handle_kick(state):
     kicker = state.get_positional_kicker(state.possession, primary_pos)
 
     atk_ctx = state._build_atk_context()
-    result = resolve_kick(kicker, kick_type_cfg, atk_ctx)
+    def_ctx = state._build_def_context()
+    result = resolve_kick(kicker, kick_type_cfg, atk_ctx, def_ctx)
 
     atk_team = state.attacking_team
 
-    if result['outcome'] == 'good':
+    if result['outcome'] == 'regather':
+        # Kick chase wins the ball back — attacking team keeps possession!
+        territory = result.get('territory_gain', 1)
+        for _ in range(territory):
+            if state.zone < 4:
+                state.zone += 1
+        text = f"Brilliant kick chase! {kicker['name']} puts it up and {atk_team['name']} regather in the {ZONE_NAMES[state.zone]}!"
+    elif result['outcome'] == 'good':
         state.swap_possession()
-        # Territory gain based on kick type
         territory = result.get('territory_gain', 1)
         for _ in range(territory):
             if state.zone > 0:
@@ -499,7 +601,7 @@ def _handle_kick(state):
         # Kick goes wrong — opponent counters from good position
         state.swap_possession()
         if state.zone < 4:
-            state.zone += 1  # Opponent in good position
+            state.zone += 1
         text = generate_commentary('kick_poor', {
             'team': atk_team['name'],
             'kicker': kicker['name'],

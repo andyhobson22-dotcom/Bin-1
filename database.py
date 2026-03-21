@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS players (
     kicking INTEGER DEFAULT 50,
     tackling INTEGER DEFAULT 50,
     handling INTEGER DEFAULT 50,
+    kick_chase INTEGER DEFAULT 50,
     -- Set Piece
     scrummaging INTEGER DEFAULT 50,
     lineout INTEGER DEFAULT 50,

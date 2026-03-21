@@ -480,6 +480,13 @@ label {
     color: var(--accent);
 }
 
+.tactic-option.tactic-sm {
+    padding: 6px 10px;
+    font-size: 0.85em;
+    flex: 0 1 auto;
+    min-width: 120px;
+}
+
 /* Setup screen */
 .team-select-grid {
     display: grid;

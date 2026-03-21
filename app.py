@@ -13,7 +13,7 @@ from models.team import get_all_teams, get_team, get_player_team, set_player_tea
 from models.match import get_match
 from models.league import get_standings, get_fixtures, get_game_state
 from models.finance import get_team_finances
-from engine.tactics import get_all_tactical_options
+from engine.tactics import get_all_tactical_options, default_tactics, calculate_style_fit, get_fit_description
 from game.season import (
     init_new_game, advance_round, get_current_round_fixtures,
     get_player_fixture, play_single_match, generate_fixtures,
@@ -205,32 +205,70 @@ def tactics():
         return redirect(url_for('index'))
 
     tactical_options = get_all_tactical_options()
+    current_tactics = session.get('tactics', default_tactics())
 
-    # Load current tactics from session
-    current_tactics = session.get('tactics', {
-        'attacking_style': 'balanced',
-        'kicking_game': 'balanced',
-        'defensive_style': 'drift',
-        'set_piece': 'balanced',
-        'tempo': 'normal',
-    })
+    # Calculate style-player fit
+    players = get_team_players(team['id'])
+    fit_score = calculate_style_fit(players[:15], current_tactics)
+    fit_label = get_fit_description(fit_score)
+    fit_pct = int(fit_score * 100)
 
     return render_template('tactics.html',
                            team=team,
                            tactical_options=tactical_options,
-                           current_tactics=current_tactics)
+                           current_tactics=current_tactics,
+                           fit_score=fit_pct,
+                           fit_label=fit_label,
+                           positions=POSITIONS)
 
 
 @app.route('/save-tactics', methods=['POST'])
 def save_tactics():
     """Save tactical selections."""
-    session['tactics'] = {
+    tactics = {
+        # Strategy
         'attacking_style': request.form.get('attacking_style', 'balanced'),
         'kicking_game': request.form.get('kicking_game', 'balanced'),
         'defensive_style': request.form.get('defensive_style', 'drift'),
         'set_piece': request.form.get('set_piece', 'balanced'),
         'tempo': request.form.get('tempo', 'normal'),
+        # With-ball team instructions
+        'kick_tendency': request.form.get('kick_tendency', 'sometimes'),
+        'kick_type': request.form.get('kick_type', 'touch_finder'),
+        'kick_zones': request.form.get('kick_zones', 'own_half'),
+        'play_off': request.form.get('play_off', 'fly_half'),
+        'offload_frequency': request.form.get('offload_frequency', 'medium'),
+        'ruck_support': request.form.get('ruck_support', 'normal'),
     }
+
+    # Position roles (with ball)
+    roles_wb = {}
+    for pos_key in POSITIONS:
+        val = request.form.get(f'role_wb_{pos_key}')
+        if val:
+            roles_wb[pos_key] = val
+    tactics['roles_with_ball'] = roles_wb
+
+    # Position roles (without ball)
+    roles_wob = {}
+    for pos_key in POSITIONS:
+        val = request.form.get(f'role_wob_{pos_key}')
+        if val:
+            roles_wob[pos_key] = val
+    tactics['roles_without_ball'] = roles_wob
+
+    # Drop behind system
+    drop_behind = []
+    for i in range(3):
+        pos = request.form.get(f'drop_pos_{i}')
+        role = request.form.get(f'drop_role_{i}')
+        if pos and role:
+            drop_behind.append({'position': pos, 'role': role})
+    if not drop_behind:
+        drop_behind = [{'position': 'fullback', 'role': 'full_cover'}]
+    tactics['drop_behind'] = drop_behind
+
+    session['tactics'] = tactics
     flash('Tactics saved.', 'success')
     return redirect(url_for('tactics'))
 
@@ -267,7 +305,8 @@ def play_match_action():
         flash('No fixture specified.', 'error')
         return redirect(url_for('dashboard'))
 
-    match_id = play_single_match(fixture_id)
+    player_tactics = session.get('tactics', default_tactics())
+    match_id = play_single_match(fixture_id, player_tactics=player_tactics)
     if match_id:
         return redirect(url_for('match_result', match_id=match_id))
     else:

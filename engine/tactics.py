@@ -299,6 +299,431 @@ RUCK_SUPPORT = {
 }
 
 
+# ── Position Roles — With Ball ─────────────────────────────────────
+
+# Each role has stat weights that determine how effective it is for
+# a given player, plus modifiers that feed into the match engine.
+
+ROLES_WITH_BALL = {
+    # ── Props (1, 3) ──
+    'walking_pillar_wb': {
+        'name': 'Walking Pillar',
+        'description': "Minimal involvement beyond set pieces. Don't pass, lad.",
+        'positions': ['loosehead_prop', 'tighthead_prop'],
+        'fatigue_mod': -0.3,       # Saves energy
+        'carry_frequency': 0.05,   # Barely carries
+        'pass_tendency': 0.0,
+        'fit_stats': {'scrummaging': 0.5, 'strength': 0.5},
+    },
+    'second_8_forward': {
+        'name': 'Second 8',
+        'description': 'Crash into the line wherever possible. Tiring but powerful.',
+        'positions': [
+            'loosehead_prop', 'tighthead_prop', 'hooker',
+            'lock_4', 'lock_5', 'blindside_flanker', 'openside_flanker',
+            'number_eight', 'inside_centre', 'left_wing', 'right_wing',
+        ],
+        'fatigue_mod': 0.4,        # Very tiring
+        'carry_frequency': 0.45,   # Carries a lot
+        'pass_tendency': 0.1,
+        'fit_stats': {'strength': 0.4, 'stamina': 0.3, 'speed': 0.15, 'handling': 0.15},
+    },
+    'all_court_forward': {
+        'name': 'All Court',
+        'description': 'Passes more than usual, recycles quickly rather than making yards.',
+        'positions': [
+            'loosehead_prop', 'tighthead_prop', 'hooker',
+            'lock_4', 'lock_5', 'blindside_flanker', 'openside_flanker',
+            'number_eight',
+        ],
+        'fatigue_mod': 0.1,
+        'carry_frequency': 0.15,
+        'pass_tendency': 0.6,
+        'fit_stats': {'handling': 0.3, 'passing': 0.3, 'game_sense': 0.2, 'stamina': 0.2},
+    },
+    # ── Back Row extra ──
+    'wide_forward': {
+        'name': 'Wide Forward',
+        'description': 'Hangs out by the wings rather than playing off 9 or 10.',
+        'positions': ['blindside_flanker', 'openside_flanker', 'number_eight'],
+        'fatigue_mod': 0.2,
+        'carry_frequency': 0.25,
+        'pass_tendency': 0.3,
+        'wide_runner': True,
+        'fit_stats': {'speed': 0.3, 'handling': 0.25, 'agility': 0.25, 'stamina': 0.2},
+    },
+    # ── Scrum Half (9) ──
+    'darter': {
+        'name': 'Darter',
+        'description': 'Sniping runs from the ruck — masked, darting, dangerous.',
+        'positions': ['scrum_half'],
+        'fatigue_mod': 0.25,
+        'carry_frequency': 0.35,
+        'pass_tendency': 0.3,
+        'fit_stats': {'speed': 0.3, 'agility': 0.3, 'handling': 0.2, 'game_sense': 0.2},
+    },
+    'playmaker_9': {
+        'name': 'Playmaker',
+        'description': 'Controls tempo more than the 10. Wider passing range.',
+        'positions': ['scrum_half'],
+        'fatigue_mod': 0.1,
+        'carry_frequency': 0.1,
+        'pass_tendency': 0.8,
+        'tempo_control': True,
+        'fit_stats': {'passing': 0.35, 'game_sense': 0.3, 'kicking': 0.2, 'handling': 0.15},
+    },
+    'field_marshal': {
+        'name': 'Field Marshal',
+        'description': 'Uses box kicks frequently to contest territory.',
+        'positions': ['scrum_half'],
+        'fatigue_mod': 0.05,
+        'carry_frequency': 0.05,
+        'pass_tendency': 0.3,
+        'box_kick_tendency': 0.5,
+        'fit_stats': {'kicking': 0.4, 'game_sense': 0.3, 'kick_chase': 0.15, 'passing': 0.15},
+    },
+    # ── Fly Half (10) ──
+    'to_the_line': {
+        'name': 'To The Line',
+        'description': 'Gets close to the defensive line before releasing the ball.',
+        'positions': ['fly_half'],
+        'fatigue_mod': 0.15,
+        'carry_frequency': 0.25,
+        'pass_tendency': 0.5,
+        'flat_play': True,
+        'fit_stats': {'game_sense': 0.3, 'passing': 0.25, 'speed': 0.2, 'handling': 0.25},
+    },
+    'full_flair': {
+        'name': 'Full Flair',
+        'description': 'Total licence — does whatever he wants. High variance.',
+        'positions': ['fly_half'],
+        'fatigue_mod': 0.2,
+        'carry_frequency': 0.2,
+        'pass_tendency': 0.5,
+        'flair_variance': 0.3,  # Extra randomness in outcomes
+        'fit_stats': {'game_sense': 0.25, 'agility': 0.25, 'passing': 0.25, 'handling': 0.25},
+    },
+    'territory_targeter': {
+        'name': 'Territory Targeter',
+        'description': 'Uses kicks to pin the opposition back and control territory.',
+        'positions': ['fly_half'],
+        'fatigue_mod': 0.05,
+        'carry_frequency': 0.05,
+        'pass_tendency': 0.3,
+        'kick_tendency_boost': 0.4,
+        'fit_stats': {'kicking': 0.4, 'game_sense': 0.3, 'kick_chase': 0.15, 'passing': 0.15},
+    },
+    'looper': {
+        'name': 'Looper',
+        'description': 'Loops around to play wider — creates overlaps out wide.',
+        'positions': ['fly_half'],
+        'fatigue_mod': 0.2,
+        'carry_frequency': 0.15,
+        'pass_tendency': 0.6,
+        'wide_runner': True,
+        'fit_stats': {'speed': 0.25, 'passing': 0.3, 'game_sense': 0.25, 'agility': 0.2},
+    },
+    # ── Wings (11, 14) ──
+    'second_8_wing': {
+        'name': 'Second 8',
+        'description': 'Uses power not pace, comes infield often. Think heavy-duty winger.',
+        'positions': ['left_wing', 'right_wing'],
+        'fatigue_mod': 0.35,
+        'carry_frequency': 0.4,
+        'pass_tendency': 0.1,
+        'fit_stats': {'strength': 0.35, 'stamina': 0.3, 'handling': 0.2, 'speed': 0.15},
+    },
+    'poacher': {
+        'name': 'Poacher',
+        'description': 'Bides his time, looking to exploit clear gaps when they appear.',
+        'positions': ['left_wing', 'right_wing'],
+        'fatigue_mod': -0.1,
+        'carry_frequency': 0.15,
+        'pass_tendency': 0.2,
+        'opportunist': True,
+        'fit_stats': {'game_sense': 0.3, 'speed': 0.25, 'agility': 0.25, 'handling': 0.2},
+    },
+    'flyer': {
+        'name': 'Flyer',
+        'description': 'Wants the ball in space to back his pace. Pure speed merchant.',
+        'positions': ['left_wing', 'right_wing'],
+        'fatigue_mod': 0.15,
+        'carry_frequency': 0.3,
+        'pass_tendency': 0.15,
+        'fit_stats': {'speed': 0.4, 'agility': 0.25, 'handling': 0.2, 'kick_chase': 0.15},
+    },
+    # ── Centres (12, 13) ──
+    'second_8_centre': {
+        'name': 'Second 8',
+        'description': 'Think Manu Tuilagi — power carrier who bends the defensive line.',
+        'positions': ['inside_centre', 'outside_centre'],
+        'fatigue_mod': 0.3,
+        'carry_frequency': 0.4,
+        'pass_tendency': 0.15,
+        'fit_stats': {'strength': 0.35, 'speed': 0.25, 'stamina': 0.2, 'handling': 0.2},
+    },
+    'second_10': {
+        'name': 'Second 10',
+        'description': 'Think Owen Farrell — playmaker who distributes and organises.',
+        'positions': ['inside_centre', 'outside_centre'],
+        'fatigue_mod': 0.1,
+        'carry_frequency': 0.1,
+        'pass_tendency': 0.7,
+        'playmaker': True,
+        'fit_stats': {'passing': 0.3, 'game_sense': 0.3, 'kicking': 0.2, 'handling': 0.2},
+    },
+    'evader': {
+        'name': 'Evader',
+        'description': 'Quick and steppy — beats defenders with footwork.',
+        'positions': ['inside_centre', 'outside_centre'],
+        'fatigue_mod': 0.15,
+        'carry_frequency': 0.3,
+        'pass_tendency': 0.3,
+        'fit_stats': {'agility': 0.35, 'speed': 0.25, 'handling': 0.2, 'game_sense': 0.2},
+    },
+    # ── Fullback (15) ──
+    'counter_man': {
+        'name': 'Counter Man',
+        'description': 'Waits to catch kicks for his chance to attack from deep.',
+        'positions': ['fullback'],
+        'fatigue_mod': 0.0,
+        'carry_frequency': 0.2,
+        'pass_tendency': 0.3,
+        'counter_attack': True,
+        'fit_stats': {'speed': 0.25, 'handling': 0.25, 'kick_chase': 0.25, 'agility': 0.25},
+    },
+    'second_10_fb': {
+        'name': 'Second 10',
+        'description': 'Helps as an extra playmaker — inserts into the line to distribute.',
+        'positions': ['fullback'],
+        'fatigue_mod': 0.15,
+        'carry_frequency': 0.15,
+        'pass_tendency': 0.6,
+        'playmaker': True,
+        'fit_stats': {'passing': 0.3, 'game_sense': 0.3, 'handling': 0.2, 'kicking': 0.2},
+    },
+    'second_8_fb': {
+        'name': 'Second 8',
+        'description': 'Comes in for a crash ball now and then — surprise power runner.',
+        'positions': ['fullback'],
+        'fatigue_mod': 0.2,
+        'carry_frequency': 0.3,
+        'pass_tendency': 0.2,
+        'fit_stats': {'strength': 0.3, 'speed': 0.25, 'handling': 0.25, 'stamina': 0.2},
+    },
+}
+
+
+# ── Position Roles — Without Ball ──────────────────────────────────
+
+ROLES_WITHOUT_BALL = {
+    # ── Forwards ──
+    'walking_pillar_def': {
+        'name': 'Walking Pillar',
+        'description': "Nothing special — do your job and wait for the scrum, lad.",
+        'positions': ['loosehead_prop', 'tighthead_prop', 'hooker', 'lock_4', 'lock_5'],
+        'tackle_aggression': 0.3,
+        'discipline_mod': 0.05,
+        'fatigue_mod': -0.2,
+        'fit_stats': {'scrummaging': 0.5, 'strength': 0.3, 'discipline': 0.2},
+    },
+    'destroyer': {
+        'name': 'Destroyer',
+        'description': 'Look for big hits and knock runners back. Risk of overlaps and ill discipline.',
+        'positions': [
+            'loosehead_prop', 'tighthead_prop', 'hooker',
+            'lock_4', 'lock_5', 'blindside_flanker', 'openside_flanker',
+            'number_eight',
+        ],
+        'tackle_aggression': 0.9,
+        'discipline_mod': -0.15,   # More penalties
+        'overlap_risk': 0.12,      # Can leave gaps
+        'fatigue_mod': 0.2,
+        'fit_stats': {'tackling': 0.35, 'strength': 0.3, 'speed': 0.2, 'discipline': 0.15},
+    },
+    'treacle': {
+        'name': 'Treacle',
+        'description': 'Hold carriers up and slow the game down. Bog them in treacle.',
+        'positions': ['loosehead_prop', 'tighthead_prop', 'hooker', 'lock_4', 'lock_5'],
+        'tackle_aggression': 0.4,
+        'slow_ball_mod': 0.2,      # Slows opposition ruck
+        'discipline_mod': 0.0,
+        'fatigue_mod': 0.1,
+        'fit_stats': {'strength': 0.35, 'tackling': 0.3, 'stamina': 0.2, 'game_sense': 0.15},
+    },
+    'jackler': {
+        'name': 'Jackler',
+        'description': 'Contest the breakdown — win turnovers at the ruck.',
+        'positions': ['hooker', 'blindside_flanker', 'openside_flanker', 'number_eight'],
+        'tackle_aggression': 0.5,
+        'jackal_chance': 0.15,     # Chance to win turnover at each ruck
+        'discipline_mod': -0.08,   # Risk of penalties at the breakdown
+        'fatigue_mod': 0.15,
+        'fit_stats': {'tackling': 0.25, 'strength': 0.25, 'speed': 0.25, 'game_sense': 0.25},
+    },
+    'work_horse': {
+        'name': 'Work Horse',
+        'description': 'Quantity of tackles — never stops working. Covers every blade.',
+        'positions': [
+            'lock_4', 'lock_5', 'blindside_flanker', 'openside_flanker',
+            'number_eight',
+        ],
+        'tackle_aggression': 0.6,
+        'tackle_volume': 0.3,      # Makes more tackles
+        'discipline_mod': 0.05,
+        'fatigue_mod': 0.25,
+        'fit_stats': {'stamina': 0.35, 'tackling': 0.3, 'speed': 0.2, 'strength': 0.15},
+    },
+    # ── Scrum Half (9) ──
+    'irritant': {
+        'name': 'Irritant',
+        'description': 'Runs ahead of the defensive line to disrupt the opposition.',
+        'positions': ['scrum_half'],
+        'tackle_aggression': 0.7,
+        'disruption': 0.2,
+        'discipline_mod': -0.1,
+        'fatigue_mod': 0.2,
+        'fit_stats': {'speed': 0.3, 'tackling': 0.25, 'agility': 0.25, 'stamina': 0.2},
+    },
+    'sweeper_9': {
+        'name': 'Sweeper',
+        'description': 'Guards against kicks behind the defensive line.',
+        'positions': ['scrum_half'],
+        'tackle_aggression': 0.3,
+        'kick_cover': 0.3,
+        'discipline_mod': 0.05,
+        'fatigue_mod': 0.1,
+        'fit_stats': {'game_sense': 0.3, 'speed': 0.25, 'kick_chase': 0.25, 'handling': 0.2},
+    },
+    'mixed_9': {
+        'name': 'Mixed',
+        'description': 'Uses game sense to judge whether to press up or sweep back.',
+        'positions': ['scrum_half'],
+        'tackle_aggression': 0.5,
+        'kick_cover': 0.15,
+        'disruption': 0.1,
+        'discipline_mod': 0.0,
+        'fatigue_mod': 0.15,
+        'fit_stats': {'game_sense': 0.4, 'speed': 0.2, 'tackling': 0.2, 'handling': 0.2},
+    },
+    # ── Backs in line (10, centres) ──
+    'drift_def': {
+        'name': 'Drift',
+        'description': 'Slide across the field — cover space patiently.',
+        'positions': ['fly_half', 'inside_centre', 'outside_centre'],
+        'tackle_aggression': 0.4,
+        'discipline_mod': 0.05,
+        'overlap_risk': 0.03,
+        'fatigue_mod': 0.1,
+        'fit_stats': {'game_sense': 0.35, 'tackling': 0.3, 'speed': 0.2, 'discipline': 0.15},
+    },
+    'blitz_def': {
+        'name': 'Blitz',
+        'description': 'Fly up aggressively on the attacker — high risk, high reward.',
+        'positions': ['fly_half', 'inside_centre', 'outside_centre'],
+        'tackle_aggression': 0.85,
+        'discipline_mod': -0.12,
+        'overlap_risk': 0.15,
+        'fatigue_mod': 0.2,
+        'fit_stats': {'tackling': 0.3, 'speed': 0.3, 'agility': 0.2, 'discipline': 0.2},
+    },
+    # ── Wings in line ──
+    'kettle': {
+        'name': 'Kettle',
+        'description': 'Rush up from wide to squeeze and kettle the attack inward.',
+        'positions': ['left_wing', 'right_wing'],
+        'tackle_aggression': 0.7,
+        'discipline_mod': -0.05,
+        'overlap_risk': 0.10,
+        'fatigue_mod': 0.15,
+        'fit_stats': {'speed': 0.3, 'tackling': 0.25, 'game_sense': 0.25, 'stamina': 0.2},
+    },
+    'stay_wide': {
+        'name': 'Stay Wide',
+        'description': 'Hold position out wide — cover the touchline.',
+        'positions': ['left_wing', 'right_wing'],
+        'tackle_aggression': 0.4,
+        'discipline_mod': 0.05,
+        'overlap_risk': 0.02,
+        'fatigue_mod': 0.05,
+        'fit_stats': {'tackling': 0.3, 'speed': 0.25, 'game_sense': 0.25, 'discipline': 0.2},
+    },
+}
+
+
+# ── Defensive Drop-Behind System ──────────────────────────────────
+# Manager picks 1-3 players to drop behind the defensive line.
+# At least 1 must be "full_cover". Others can be "watcher".
+
+DROP_BEHIND_ROLES = {
+    'full_cover': {
+        'name': 'Full Cover',
+        'description': 'Stays deep permanently — covers the backfield against kicks.',
+        'kick_cover': 0.4,
+        'counter_attack_chance': 0.2,
+        'in_line': False,
+        'fit_stats': {'speed': 0.25, 'handling': 0.25, 'kick_chase': 0.25, 'game_sense': 0.25},
+    },
+    'watcher': {
+        'name': 'Watcher',
+        'description': 'Uses game sense to decide — drop back or stay in the line.',
+        'kick_cover': 0.2,
+        'counter_attack_chance': 0.1,
+        'in_line': 'sometimes',  # Game sense determines
+        'fit_stats': {'game_sense': 0.4, 'speed': 0.25, 'kick_chase': 0.2, 'handling': 0.15},
+    },
+}
+
+# Which positions CAN be dropped behind
+DROP_BEHIND_ELIGIBLE = [
+    'fullback', 'fly_half', 'left_wing', 'right_wing',
+    'inside_centre', 'outside_centre', 'scrum_half',
+]
+
+
+def get_roles_for_position(position):
+    """Get available with-ball and without-ball roles for a position."""
+    with_ball = {}
+    for key, role in ROLES_WITH_BALL.items():
+        if position in role['positions']:
+            with_ball[key] = role
+
+    without_ball = {}
+    for key, role in ROLES_WITHOUT_BALL.items():
+        if position in role['positions']:
+            without_ball[key] = role
+
+    can_drop = position in DROP_BEHIND_ELIGIBLE
+
+    return {
+        'with_ball': with_ball,
+        'without_ball': without_ball,
+        'can_drop_behind': can_drop,
+    }
+
+
+def default_role_for_position(position):
+    """Return sensible default roles for each position."""
+    defaults = {
+        'loosehead_prop': ('walking_pillar_wb', 'walking_pillar_def'),
+        'tighthead_prop': ('walking_pillar_wb', 'walking_pillar_def'),
+        'hooker': ('walking_pillar_wb', 'walking_pillar_def'),
+        'lock_4': ('all_court_forward', 'work_horse'),
+        'lock_5': ('all_court_forward', 'work_horse'),
+        'blindside_flanker': ('all_court_forward', 'destroyer'),
+        'openside_flanker': ('all_court_forward', 'jackler'),
+        'number_eight': ('second_8_forward', 'destroyer'),
+        'scrum_half': ('playmaker_9', 'mixed_9'),
+        'fly_half': ('to_the_line', 'drift_def'),
+        'inside_centre': ('second_10', 'drift_def'),
+        'outside_centre': ('evader', 'drift_def'),
+        'left_wing': ('flyer', 'stay_wide'),
+        'right_wing': ('flyer', 'stay_wide'),
+        'fullback': ('counter_man', None),  # None = dropped behind
+    }
+    return defaults.get(position, ('walking_pillar_wb', 'walking_pillar_def'))
+
+
 # ── Default Tactics ────────────────────────────────────────────────
 
 def default_tactics():
@@ -317,6 +742,13 @@ def default_tactics():
         'play_off': 'fly_half',
         'offload_frequency': 'medium',
         'ruck_support': 'normal',
+        # Position roles (position -> role_key)
+        'roles_with_ball': {},     # Empty = use defaults
+        'roles_without_ball': {},  # Empty = use defaults
+        # Defensive drop-behind (list of {position, role})
+        'drop_behind': [
+            {'position': 'fullback', 'role': 'full_cover'},
+        ],
     }
 
 
@@ -440,6 +872,12 @@ def apply_tactical_modifiers(base_stats, tactics):
 
 def get_all_tactical_options():
     """Return all tactical options for the frontend."""
+    from models.player import POSITIONS
+    # Build per-position role options
+    position_roles = {}
+    for pos_key in POSITIONS:
+        position_roles[pos_key] = get_roles_for_position(pos_key)
+
     return {
         'strategy': {
             'attacking_style': ATTACKING_STYLES,
@@ -456,4 +894,7 @@ def get_all_tactical_options():
             'offload_frequency': OFFLOAD_FREQUENCY,
             'ruck_support': RUCK_SUPPORT,
         },
+        'position_roles': position_roles,
+        'drop_behind_roles': DROP_BEHIND_ROLES,
+        'drop_behind_eligible': DROP_BEHIND_ELIGIBLE,
     }

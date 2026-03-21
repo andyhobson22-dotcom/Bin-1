@@ -3,21 +3,37 @@
 {% block content %}
 <div class="page-header">
     <h1>Tactics</h1>
-    <p class="subtitle">Set your match strategy</p>
+    <p class="subtitle">Set your match strategy, with-ball instructions, and position roles</p>
+</div>
+
+<!-- Style-Player Fit Indicator -->
+<div class="card" style="text-align: center; padding: 1em;">
+    <strong>Style-Player Fit:</strong>
+    <span style="font-size: 1.2em; margin-left: 0.5em;
+        color: {% if fit_score >= 65 %}var(--success){% elif fit_score >= 50 %}var(--warning){% else %}var(--danger){% endif %};">
+        {{ fit_label }} ({{ fit_score }}%)
+    </span>
+    <div style="margin-top: 0.5em; font-size: 0.8em; color: var(--text-muted);">
+        How well your chosen tactics match your players' abilities
+    </div>
 </div>
 
 <form method="POST" action="{{ url_for('save_tactics') }}">
-    {% for category, options in tactical_options.items() %}
+
+    <!-- ═══ TEAM STRATEGY ═══ -->
+    <h2 class="mt-2" style="border-bottom: 2px solid var(--primary); padding-bottom: 0.5em;">Team Strategy</h2>
+    {% set strategy = tactical_options.strategy %}
+    {% for category, options in strategy.items() %}
     <div class="card">
         <div class="tactics-group">
-            <h2>{{ category.replace('_', ' ').title() }}</h2>
+            <h3>{{ category.replace('_', ' ').title() }}</h3>
             <div class="tactic-options">
                 {% for key, option in options.items() %}
                 <label class="tactic-option {% if current_tactics.get(category) == key %}selected{% endif %}">
                     <input type="radio" name="{{ category }}" value="{{ key }}"
                            {% if current_tactics.get(category) == key %}checked{% endif %}
                            style="display: none;"
-                           onchange="this.closest('.tactic-option').classList.add('selected'); document.querySelectorAll('input[name={{ category }}]').forEach(i => { if(i !== this) i.closest('.tactic-option').classList.remove('selected'); })">
+                           onchange="selectOption(this, '{{ category }}')">
                     <strong>{{ option.name }}</strong><br>
                     <span class="text-muted" style="font-size: 0.8em;">{{ option.description }}</span>
                 </label>
@@ -27,6 +43,177 @@
     </div>
     {% endfor %}
 
-    <button type="submit" class="btn btn-primary btn-lg">Save Tactics</button>
+    <!-- ═══ WITH-BALL INSTRUCTIONS ═══ -->
+    <h2 class="mt-2" style="border-bottom: 2px solid var(--primary); padding-bottom: 0.5em;">With-Ball Instructions</h2>
+    {% set with_ball = tactical_options.with_ball %}
+    {% for category, options in with_ball.items() %}
+    <div class="card">
+        <div class="tactics-group">
+            <h3>{{ category.replace('_', ' ').title() }}</h3>
+            <div class="tactic-options">
+                {% for key, option in options.items() %}
+                <label class="tactic-option {% if current_tactics.get(category) == key %}selected{% endif %}">
+                    <input type="radio" name="{{ category }}" value="{{ key }}"
+                           {% if current_tactics.get(category) == key %}checked{% endif %}
+                           style="display: none;"
+                           onchange="selectOption(this, '{{ category }}')">
+                    <strong>{{ option.name }}</strong><br>
+                    <span class="text-muted" style="font-size: 0.8em;">{{ option.description }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- ═══ POSITION ROLES ═══ -->
+    <h2 class="mt-2" style="border-bottom: 2px solid var(--primary); padding-bottom: 0.5em;">Position Roles</h2>
+
+    {% set pos_roles = tactical_options.position_roles %}
+
+    <!-- Forwards -->
+    <h3 style="color: var(--primary); margin: 1em 0 0.5em;">Forwards</h3>
+    {% set forward_positions = ['loosehead_prop', 'hooker', 'tighthead_prop', 'lock_4', 'lock_5', 'blindside_flanker', 'openside_flanker', 'number_eight'] %}
+    {% for pos_key in forward_positions %}
+    {% set pos_info = positions[pos_key] %}
+    {% set roles = pos_roles[pos_key] %}
+    <div class="card">
+        <h4 style="margin-bottom: 0.3em;">{{ pos_info.number }}. {{ pos_info.name }}</h4>
+
+        {% if roles.with_ball %}
+        <div class="tactics-group">
+            <span class="text-muted" style="font-size: 0.75em; text-transform: uppercase;">With Ball</span>
+            <div class="tactic-options" style="margin-top: 0.3em;">
+                {% for key, role in roles.with_ball.items() %}
+                <label class="tactic-option tactic-sm {% if current_tactics.get('roles_with_ball', {}).get(pos_key) == key %}selected{% endif %}">
+                    <input type="radio" name="role_wb_{{ pos_key }}" value="{{ key }}"
+                           {% if current_tactics.get('roles_with_ball', {}).get(pos_key) == key %}checked{% endif %}
+                           style="display: none;"
+                           onchange="selectOption(this, 'role_wb_{{ pos_key }}')">
+                    <strong>{{ role.name }}</strong><br>
+                    <span class="text-muted" style="font-size: 0.75em;">{{ role.description }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if roles.without_ball %}
+        <div class="tactics-group" style="margin-top: 0.8em;">
+            <span class="text-muted" style="font-size: 0.75em; text-transform: uppercase;">Without Ball</span>
+            <div class="tactic-options" style="margin-top: 0.3em;">
+                {% for key, role in roles.without_ball.items() %}
+                <label class="tactic-option tactic-sm {% if current_tactics.get('roles_without_ball', {}).get(pos_key) == key %}selected{% endif %}">
+                    <input type="radio" name="role_wob_{{ pos_key }}" value="{{ key }}"
+                           {% if current_tactics.get('roles_without_ball', {}).get(pos_key) == key %}checked{% endif %}
+                           style="display: none;"
+                           onchange="selectOption(this, 'role_wob_{{ pos_key }}')">
+                    <strong>{{ role.name }}</strong><br>
+                    <span class="text-muted" style="font-size: 0.75em;">{{ role.description }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <!-- Backs -->
+    <h3 style="color: var(--primary); margin: 1em 0 0.5em;">Backs</h3>
+    {% set back_positions = ['scrum_half', 'fly_half', 'inside_centre', 'outside_centre', 'left_wing', 'right_wing', 'fullback'] %}
+    {% for pos_key in back_positions %}
+    {% set pos_info = positions[pos_key] %}
+    {% set roles = pos_roles[pos_key] %}
+    <div class="card">
+        <h4 style="margin-bottom: 0.3em;">{{ pos_info.number }}. {{ pos_info.name }}</h4>
+
+        {% if roles.with_ball %}
+        <div class="tactics-group">
+            <span class="text-muted" style="font-size: 0.75em; text-transform: uppercase;">With Ball</span>
+            <div class="tactic-options" style="margin-top: 0.3em;">
+                {% for key, role in roles.with_ball.items() %}
+                <label class="tactic-option tactic-sm {% if current_tactics.get('roles_with_ball', {}).get(pos_key) == key %}selected{% endif %}">
+                    <input type="radio" name="role_wb_{{ pos_key }}" value="{{ key }}"
+                           {% if current_tactics.get('roles_with_ball', {}).get(pos_key) == key %}checked{% endif %}
+                           style="display: none;"
+                           onchange="selectOption(this, 'role_wb_{{ pos_key }}')">
+                    <strong>{{ role.name }}</strong><br>
+                    <span class="text-muted" style="font-size: 0.75em;">{{ role.description }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if roles.without_ball %}
+        <div class="tactics-group" style="margin-top: 0.8em;">
+            <span class="text-muted" style="font-size: 0.75em; text-transform: uppercase;">Without Ball</span>
+            <div class="tactic-options" style="margin-top: 0.3em;">
+                {% for key, role in roles.without_ball.items() %}
+                <label class="tactic-option tactic-sm {% if current_tactics.get('roles_without_ball', {}).get(pos_key) == key %}selected{% endif %}">
+                    <input type="radio" name="role_wob_{{ pos_key }}" value="{{ key }}"
+                           {% if current_tactics.get('roles_without_ball', {}).get(pos_key) == key %}checked{% endif %}
+                           style="display: none;"
+                           onchange="selectOption(this, 'role_wob_{{ pos_key }}')">
+                    <strong>{{ role.name }}</strong><br>
+                    <span class="text-muted" style="font-size: 0.75em;">{{ role.description }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <!-- ═══ DEFENSIVE DROP-BEHIND ═══ -->
+    <h2 class="mt-2" style="border-bottom: 2px solid var(--primary); padding-bottom: 0.5em;">Defensive Drop-Behind</h2>
+    <p class="text-muted" style="font-size: 0.85em; margin-bottom: 1em;">
+        Choose 1-3 players to drop behind the defensive line. At least one must be Full Cover (usually the fullback).
+    </p>
+
+    {% set drop_behind_eligible = tactical_options.drop_behind_eligible %}
+    {% set drop_roles = tactical_options.drop_behind_roles %}
+    {% set current_drops = current_tactics.get('drop_behind', [{'position': 'fullback', 'role': 'full_cover'}]) %}
+
+    {% for i in range(3) %}
+    {% set current_drop = current_drops[i] if i < current_drops|length else {} %}
+    <div class="card">
+        <h4>Drop {{ i + 1 }}{% if i == 0 %} (Required){% else %} (Optional){% endif %}</h4>
+        <div style="display: flex; gap: 1em; flex-wrap: wrap; margin-top: 0.5em;">
+            <div>
+                <label class="text-muted" style="font-size: 0.75em;">Position</label><br>
+                <select name="drop_pos_{{ i }}" style="background: var(--card-bg); color: var(--text); border: 1px solid var(--border); padding: 0.4em; border-radius: 4px;">
+                    {% if i > 0 %}<option value="">— None —</option>{% endif %}
+                    {% for pos in drop_behind_eligible %}
+                    <option value="{{ pos }}" {% if current_drop.get('position') == pos %}selected{% endif %}>
+                        {{ positions[pos].number }}. {{ positions[pos].name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="text-muted" style="font-size: 0.75em;">Role</label><br>
+                <select name="drop_role_{{ i }}" style="background: var(--card-bg); color: var(--text); border: 1px solid var(--border); padding: 0.4em; border-radius: 4px;">
+                    {% for key, role in drop_roles.items() %}
+                    <option value="{{ key }}" {% if current_drop.get('role') == key %}selected{% endif %}>
+                        {{ role.name }} — {{ role.description }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <button type="submit" class="btn btn-primary btn-lg" style="margin-top: 1em;">Save Tactics</button>
 </form>
+
+<script>
+function selectOption(input, groupName) {
+    document.querySelectorAll('input[name="' + groupName + '"]').forEach(function(i) {
+        i.closest('.tactic-option').classList.remove('selected');
+    });
+    input.closest('.tactic-option').classList.add('selected');
+}
+</script>
 {% endblock %}

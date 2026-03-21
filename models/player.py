@@ -33,9 +33,9 @@ POSITION_WEIGHTS = {
     'fly_half': {'kicking': 3, 'passing': 3, 'game_sense': 3, 'handling': 1, 'tackling': 1},
     'inside_centre': {'tackling': 2, 'strength': 2, 'passing': 2, 'speed': 1, 'handling': 1, 'game_sense': 2},
     'outside_centre': {'speed': 2, 'passing': 2, 'tackling': 2, 'handling': 1, 'agility': 2, 'game_sense': 1},
-    'left_wing': {'speed': 3, 'agility': 2, 'handling': 2, 'tackling': 1, 'kicking': 1},
-    'right_wing': {'speed': 3, 'agility': 2, 'handling': 2, 'tackling': 1, 'kicking': 1},
-    'fullback': {'kicking': 2, 'speed': 2, 'handling': 2, 'tackling': 1, 'game_sense': 2, 'agility': 1},
+    'left_wing': {'speed': 3, 'agility': 2, 'handling': 2, 'tackling': 1, 'kicking': 1, 'kick_chase': 2},
+    'right_wing': {'speed': 3, 'agility': 2, 'handling': 2, 'tackling': 1, 'kicking': 1, 'kick_chase': 2},
+    'fullback': {'kicking': 2, 'speed': 2, 'handling': 2, 'tackling': 1, 'game_sense': 2, 'agility': 1, 'kick_chase': 1},
 }
 
 

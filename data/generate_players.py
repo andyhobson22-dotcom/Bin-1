@@ -55,77 +55,77 @@ STAT_PROFILES = {
         'agility': (25, 50), 'passing': (20, 45), 'kicking': (15, 35),
         'tackling': (55, 80), 'handling': (30, 55), 'scrummaging': (70, 95),
         'lineout': (15, 35), 'game_sense': (35, 60), 'leadership': (30, 70),
-        'discipline': (40, 75),
+        'discipline': (40, 75), 'kick_chase': (15, 35),
     },
     'hooker': {
         'speed': (35, 55), 'strength': (65, 90), 'stamina': (55, 80),
         'agility': (35, 55), 'passing': (30, 55), 'kicking': (15, 35),
         'tackling': (60, 85), 'handling': (40, 65), 'scrummaging': (60, 85),
         'lineout': (65, 95), 'game_sense': (40, 65), 'leadership': (35, 75),
-        'discipline': (45, 75),
+        'discipline': (45, 75), 'kick_chase': (30, 55),
     },
     'tighthead_prop': {
         'speed': (25, 45), 'strength': (75, 99), 'stamina': (50, 75),
         'agility': (20, 45), 'passing': (15, 40), 'kicking': (10, 30),
         'tackling': (55, 80), 'handling': (25, 50), 'scrummaging': (75, 99),
         'lineout': (15, 35), 'game_sense': (30, 55), 'leadership': (25, 65),
-        'discipline': (40, 70),
+        'discipline': (40, 70), 'kick_chase': (15, 30),
     },
     'lock': {
         'speed': (35, 55), 'strength': (65, 90), 'stamina': (55, 80),
         'agility': (30, 50), 'passing': (25, 50), 'kicking': (15, 35),
         'tackling': (55, 80), 'handling': (35, 60), 'scrummaging': (55, 80),
         'lineout': (70, 95), 'game_sense': (40, 65), 'leadership': (40, 80),
-        'discipline': (45, 75),
+        'discipline': (45, 75), 'kick_chase': (30, 55),
     },
     'flanker': {
         'speed': (50, 75), 'strength': (60, 85), 'stamina': (65, 90),
         'agility': (45, 70), 'passing': (35, 60), 'kicking': (15, 40),
         'tackling': (70, 95), 'handling': (40, 65), 'scrummaging': (45, 70),
         'lineout': (40, 70), 'game_sense': (50, 75), 'leadership': (40, 75),
-        'discipline': (45, 75),
+        'discipline': (45, 75), 'kick_chase': (45, 75),
     },
     'number_eight': {
         'speed': (45, 70), 'strength': (65, 90), 'stamina': (60, 85),
         'agility': (40, 65), 'passing': (35, 60), 'kicking': (15, 40),
         'tackling': (60, 85), 'handling': (45, 70), 'scrummaging': (50, 75),
         'lineout': (35, 60), 'game_sense': (50, 75), 'leadership': (45, 80),
-        'discipline': (45, 75),
+        'discipline': (45, 75), 'kick_chase': (40, 65),
     },
     'scrum_half': {
         'speed': (60, 85), 'strength': (30, 55), 'stamina': (60, 85),
         'agility': (60, 85), 'passing': (70, 95), 'kicking': (45, 75),
         'tackling': (40, 65), 'handling': (60, 85), 'scrummaging': (15, 30),
         'lineout': (15, 30), 'game_sense': (60, 85), 'leadership': (45, 80),
-        'discipline': (50, 80),
+        'discipline': (50, 80), 'kick_chase': (40, 65),
     },
     'fly_half': {
         'speed': (50, 75), 'strength': (30, 55), 'stamina': (55, 80),
         'agility': (55, 80), 'passing': (70, 95), 'kicking': (70, 95),
         'tackling': (35, 60), 'handling': (60, 85), 'scrummaging': (10, 25),
         'lineout': (10, 25), 'game_sense': (70, 95), 'leadership': (50, 85),
-        'discipline': (55, 85),
+        'discipline': (55, 85), 'kick_chase': (30, 55),
     },
     'centre': {
         'speed': (55, 80), 'strength': (50, 75), 'stamina': (55, 80),
         'agility': (55, 80), 'passing': (50, 80), 'kicking': (35, 65),
         'tackling': (55, 80), 'handling': (50, 75), 'scrummaging': (10, 25),
         'lineout': (10, 25), 'game_sense': (55, 80), 'leadership': (35, 70),
-        'discipline': (50, 80),
+        'discipline': (50, 80), 'kick_chase': (40, 70),
     },
     'wing': {
         'speed': (70, 99), 'strength': (40, 65), 'stamina': (55, 80),
         'agility': (65, 90), 'passing': (35, 60), 'kicking': (30, 60),
         'tackling': (35, 65), 'handling': (50, 80), 'scrummaging': (10, 20),
         'lineout': (10, 25), 'game_sense': (45, 70), 'leadership': (25, 55),
-        'discipline': (50, 80),
+        'discipline': (50, 80), 'kick_chase': (60, 95),
     },
     'fullback': {
         'speed': (60, 85), 'strength': (35, 60), 'stamina': (55, 80),
         'agility': (60, 85), 'passing': (45, 75), 'kicking': (60, 90),
         'tackling': (40, 70), 'handling': (55, 85), 'scrummaging': (10, 20),
         'lineout': (10, 25), 'game_sense': (60, 85), 'leadership': (35, 65),
-        'discipline': (55, 85),
+        'discipline': (55, 85), 'kick_chase': (50, 80),
     },
 }
 
@@ -250,7 +250,7 @@ def generate_squad(team_reputation):
             if i == 0:
                 for stat in ['speed', 'strength', 'stamina', 'agility', 'passing',
                              'kicking', 'tackling', 'handling', 'scrummaging',
-                             'lineout', 'game_sense']:
+                             'lineout', 'game_sense', 'kick_chase']:
                     player[stat] = min(99, player[stat] + random.randint(3, 8))
             players.append(player)
 

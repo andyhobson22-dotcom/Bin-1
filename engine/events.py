@@ -186,11 +186,31 @@ def resolve_phase_play(attacking_players, defending_players, zone, phase_count,
     # Randomness
     atk_score += random.randint(-18, 18)
 
+    # Flair variance — full flair 10 adds extra randomness
+    flair = atk_ctx.get('flair_variance', 0)
+    if flair > 0:
+        flair_range = int(flair * 30)
+        atk_score += random.randint(-flair_range, flair_range)
+
     # Defence score — gets stronger the more phases (attacking fatigue)
     fatigue_penalty = min(phase_count * 2, 15)
     def_score = (def_tackling * 0.35 + def_game_sense * 0.25 + def_speed * 0.15)
     def_score += _context_modifier(def_ctx)
     def_score += random.randint(-15, 15) - fatigue_penalty
+
+    # Tackle aggression from position roles — higher = more dominant tackles
+    tackle_agg = def_ctx.get('avg_tackle_agg', 0.5)
+    def_score += (tackle_agg - 0.5) * 12  # -6 to +5 range
+
+    # Overlap risk — aggressive defence can leave gaps
+    overlap_risk = def_ctx.get('avg_overlap_risk', 0)
+    if overlap_risk > 0 and random.random() < overlap_risk:
+        def_score -= 8  # Gap in the line!
+
+    # Jackal chance — can force a turnover at the ruck
+    jackal = def_ctx.get('jackal_chance', 0)
+    if jackal > 0 and random.random() < jackal:
+        return {'outcome': 'turnover', 'method': 'jackal'}
 
     diff = atk_score - def_score
 
@@ -241,6 +261,15 @@ def resolve_try_attempt(attacking_players, defending_players, zone,
     def_score += _context_modifier(def_ctx)
     def_score += random.randint(-15, 15)
 
+    # Tackle aggression boost
+    tackle_agg = def_ctx.get('avg_tackle_agg', 0.5)
+    def_score += (tackle_agg - 0.5) * 10
+
+    # Overlap risk — aggressive defence might leave gaps near the try line
+    overlap_risk = def_ctx.get('avg_overlap_risk', 0)
+    if overlap_risk > 0 and random.random() < overlap_risk:
+        def_score -= 10
+
     diff = atk_score - def_score
 
     if diff > 10:
@@ -253,14 +282,16 @@ def resolve_try_attempt(attacking_players, defending_players, zone,
 
 # ── Kicks ──────────────────────────────────────────────────────────
 
-def resolve_kick(kicker, kick_type_cfg, atk_ctx=None):
+def resolve_kick(kicker, kick_type_cfg, atk_ctx=None, def_ctx=None):
     """Resolve a kick based on the kick type config.
 
-    Returns dict with 'outcome': 'good', 'poor', 'turnover'
+    Returns dict with 'outcome': 'good', 'poor', 'turnover', 'regather'
     and 'territory_gain': int (zones)
     """
     atk_ctx = atk_ctx or {}
+    def_ctx = def_ctx or {}
     kick_skill = kicker.get('kicking', 50)
+    kick_chase_skill = kicker.get('kick_chase', 40)
 
     # Fatigue reduces kicking accuracy
     kick_skill += _fatigue_modifier(atk_ctx.get('fatigue', 0)) * 0.5
@@ -269,8 +300,15 @@ def resolve_kick(kicker, kick_type_cfg, atk_ctx=None):
     success_roll = random.randint(1, 100)
 
     if success_roll < kick_skill:
-        # Good kick
+        # Good kick — if contestable, kick_chase matters
         territory = kick_type_cfg.get('territory_gain', 1)
+        if kick_type_cfg.get('contest_air', False):
+            # Contested kick — can regather with great kick chase
+            chase_roll = random.randint(1, 100)
+            # Defender's backfield cover reduces regather chance
+            def_cover = def_ctx.get('kick_cover', 0.2) * 30
+            if chase_roll < kick_chase_skill * 0.4 - def_cover:
+                return {'outcome': 'regather', 'territory_gain': territory}
         return {'outcome': 'good', 'territory_gain': territory}
     elif random.random() < kick_type_cfg.get('turnover_risk', 0.1):
         # Bad kick that leads to a counter-attack
@@ -338,7 +376,9 @@ def resolve_card_check(defending_players, def_ctx=None):
 
     # Fatigue makes discipline worse
     fatigue_penalty = (def_ctx.get('fatigue', 0) / 100) * 10
-    effective_discipline = avg_discipline - fatigue_penalty
+    # Position role discipline modifier (destroyers/blitz = more cards)
+    role_discipline = def_ctx.get('avg_discipline_mod', 0) * 100
+    effective_discipline = avg_discipline - fatigue_penalty + role_discipline
 
     roll = random.randint(1, 100)
     card_threshold = effective_discipline * 0.8
