@@ -1,11 +1,31 @@
-"""Core match simulation engine for rugby union."""
+"""Core match simulation engine for rugby union.
+
+Factors in: player stats, tactical choices, style-player fit,
+home advantage, fatigue accumulation, kick instructions,
+offload frequency, ruck support, and playmaker influence.
+"""
 import random
 from engine.commentary import generate_commentary
 from engine.events import (
     ZONE_NAMES, EventType, resolve_scrum, resolve_lineout,
     resolve_phase_play, resolve_penalty, resolve_try_attempt,
     resolve_conversion, resolve_drop_goal, resolve_card_check,
+    resolve_kick, resolve_penalty_kick,
 )
+from engine.tactics import (
+    default_tactics, calculate_style_fit, apply_tactical_modifiers,
+    KICK_TENDENCY, KICK_TYPE, KICK_ZONES, PLAY_OFF,
+    OFFLOAD_FREQUENCY, RUCK_SUPPORT,
+)
+
+
+# ── Fatigue constants ──────────────────────────────────────────────
+# Fatigue is 0-100 per side.  0 = fresh, 100 = exhausted.
+BASE_FATIGUE_PER_MINUTE = 0.6          # ~48% by minute 80 for normal tempo
+HIGH_TEMPO_FATIGUE_MULT = 1.35
+CONTROL_TEMPO_FATIGUE_MULT = 0.75
+HALF_TIME_RECOVERY = 15                # Flat recovery at half time
+HOME_ADVANTAGE_BONUS = 3               # Stat points added to home side
 
 
 class MatchState:
@@ -15,7 +35,7 @@ class MatchState:
                  home_tactics=None, away_tactics=None):
         self.home_team = home_team
         self.away_team = away_team
-        self.home_players = home_players  # List of 23 player dicts (15 starters + 8 bench)
+        self.home_players = home_players
         self.away_players = away_players
         self.home_tactics = home_tactics or default_tactics()
         self.away_tactics = away_tactics or default_tactics()
@@ -38,15 +58,87 @@ class MatchState:
 
         # Match state
         self.minute = 0
-        self.possession = 'home'  # 'home' or 'away'
+        self.possession = 'home'
         self.zone = 2  # 0=own22, 1=own_half, 2=midfield, 3=opp_half, 4=opp22
-        self.phase = 0  # Current phase count in this passage
+        self.phase = 0
         self.events = []
         self.commentary = []
         self.half = 1
 
+        # Fatigue (0-100 per side)
+        self.home_fatigue = 0.0
+        self.away_fatigue = 0.0
+
+        # Pre-computed style fits (0.0-1.0)
+        self.home_fit = calculate_style_fit(home_players[:15], self.home_tactics)
+        self.away_fit = calculate_style_fit(away_players[:15], self.away_tactics)
+
         # Sin bin tracking: {player_id: return_minute}
         self.sin_bin = {}
+
+    # ── Context builders ───────────────────────────────────────────
+
+    def _build_atk_context(self):
+        """Build the attacking context dict passed to event resolvers."""
+        side = self.possession
+        tactics = self.home_tactics if side == 'home' else self.away_tactics
+        fatigue = self.home_fatigue if side == 'home' else self.away_fatigue
+        fit = self.home_fit if side == 'home' else self.away_fit
+
+        # Play-off bonus: how good is the key playmaker
+        play_off_cfg = PLAY_OFF.get(tactics.get('play_off', 'fly_half'), {})
+        play_off_bonus = self._calc_play_off_bonus(side, play_off_cfg)
+
+        # Offload settings
+        offload_cfg = OFFLOAD_FREQUENCY.get(
+            tactics.get('offload_frequency', 'medium'), {})
+
+        # Ruck support
+        ruck_cfg = RUCK_SUPPORT.get(tactics.get('ruck_support', 'normal'), {})
+
+        return {
+            'home_bonus': HOME_ADVANTAGE_BONUS if side == 'home' else 0,
+            'fatigue': fatigue,
+            'style_fit': fit,
+            'play_off_bonus': play_off_bonus,
+            'offload_chance': offload_cfg.get('offload_chance', 0.15),
+            'offload_turnover_mod': offload_cfg.get('turnover_risk_mod', 0),
+            'offload_big_play_mod': offload_cfg.get('big_play_mod', 0),
+            'ruck_speed_mod': ruck_cfg.get('ruck_speed_mod', 0),
+        }
+
+    def _build_def_context(self):
+        """Build the defending context dict."""
+        side = 'away' if self.possession == 'home' else 'home'
+        fatigue = self.home_fatigue if side == 'home' else self.away_fatigue
+        fit = self.home_fit if side == 'home' else self.away_fit
+
+        return {
+            'home_bonus': HOME_ADVANTAGE_BONUS if side == 'home' else 0,
+            'fatigue': fatigue,
+            'style_fit': fit,
+        }
+
+    def _calc_play_off_bonus(self, side, play_off_cfg):
+        """How much the designated playmaker boosts attack."""
+        players = self.home_players[:15] if side == 'home' else self.away_players[:15]
+        key_pos = play_off_cfg.get('key_position', 'fly_half')
+        stat_weights = play_off_cfg.get('stat_weights', {})
+
+        key_player = None
+        for p in players:
+            if p.get('position') == key_pos:
+                key_player = p
+                break
+
+        if not key_player or not stat_weights:
+            return 0
+
+        score = sum(key_player.get(s, 50) * w for s, w in stat_weights.items())
+        # Normalise to roughly -5 to +8
+        return (score - 50) * 0.15
+
+    # ── Properties ─────────────────────────────────────────────────
 
     @property
     def attacking_team(self):
@@ -69,8 +161,15 @@ class MatchState:
         players = self.home_players[:15] if side == 'home' else self.away_players[:15]
         return max(players, key=lambda p: p.get('kicking', 50))
 
+    def get_positional_kicker(self, side, position):
+        """Get a kicker by position (e.g. scrum_half for box kicks)."""
+        players = self.home_players[:15] if side == 'home' else self.away_players[:15]
+        for p in players:
+            if p.get('position') == position:
+                return p
+        return self.get_kicker(side)
+
     def get_avg_stat(self, players, stat, positions=None):
-        """Get average stat from players, optionally filtered by position group."""
         if positions:
             filtered = [p for p in players if p.get('position', '') in positions]
             if not filtered:
@@ -81,7 +180,7 @@ class MatchState:
 
     def swap_possession(self):
         self.possession = 'away' if self.possession == 'home' else 'home'
-        self.zone = 4 - self.zone  # Mirror field position
+        self.zone = 4 - self.zone
         self.phase = 0
 
     def add_score(self, side, points, score_type):
@@ -120,13 +219,50 @@ class MatchState:
                 self.away_red_cards += 1
 
     def check_sin_bin_returns(self):
-        """Return players from sin bin if their time is up."""
         returned = []
         for pid, return_min in list(self.sin_bin.items()):
             if self.minute >= return_min:
                 del self.sin_bin[pid]
                 returned.append(pid)
         return returned
+
+    # ── Fatigue ────────────────────────────────────────────────────
+
+    def tick_fatigue(self):
+        """Advance fatigue for one minute of play."""
+        for side in ('home', 'away'):
+            tactics = self.home_tactics if side == 'home' else self.away_tactics
+            tempo = tactics.get('tempo', 'normal')
+            ruck_cfg = RUCK_SUPPORT.get(tactics.get('ruck_support', 'normal'), {})
+
+            # Base drain
+            drain = BASE_FATIGUE_PER_MINUTE
+
+            # Tempo modifier
+            if tempo == 'high':
+                drain *= HIGH_TEMPO_FATIGUE_MULT
+            elif tempo == 'control':
+                drain *= CONTROL_TEMPO_FATIGUE_MULT
+
+            # Ruck support modifier
+            stamina_save = ruck_cfg.get('stamina_save', 0)
+            drain *= (1 - stamina_save)
+
+            # Squad stamina reduces fatigue accumulation
+            players = self.home_players[:15] if side == 'home' else self.away_players[:15]
+            avg_stamina = sum(p.get('stamina', 50) for p in players) / max(len(players), 1)
+            stamina_factor = 1.0 - (avg_stamina - 50) / 200  # 50 stam=1.0, 90 stam=0.8
+            drain *= max(0.5, stamina_factor)
+
+            if side == 'home':
+                self.home_fatigue = min(100, self.home_fatigue + drain)
+            else:
+                self.away_fatigue = min(100, self.away_fatigue + drain)
+
+    def half_time_recovery(self):
+        """Partial recovery at half time."""
+        self.home_fatigue = max(0, self.home_fatigue - HALF_TIME_RECOVERY)
+        self.away_fatigue = max(0, self.away_fatigue - HALF_TIME_RECOVERY)
 
     def to_result(self):
         """Convert match state to a result dict for saving."""
@@ -152,15 +288,7 @@ class MatchState:
         }
 
 
-def default_tactics():
-    return {
-        'attacking_style': 'balanced',   # expansive, structured, balanced
-        'kicking_game': 'balanced',      # kick_heavy, run_first, balanced
-        'defensive_style': 'drift',      # rush, drift, blitz
-        'set_piece': 'balanced',         # maul_focused, quick_ball, conservative
-        'tempo': 'normal',               # high, normal, control
-    }
-
+# ── Main Entry Point ───────────────────────────────────────────────
 
 def simulate_match(home_team, away_team, home_players, away_players,
                    home_tactics=None, away_tactics=None, fixture_id=None):
@@ -169,7 +297,7 @@ def simulate_match(home_team, away_team, home_players, away_players,
                        home_tactics, away_tactics)
 
     # Kickoff
-    state.possession = 'away'  # Receiving team gets possession from kickoff
+    state.possession = 'away'
     state.zone = 2
     state.commentary.append({
         'minute': 0,
@@ -177,13 +305,13 @@ def simulate_match(home_team, away_team, home_players, away_players,
                 f"{home_team['name']} vs {away_team['name']}."
     })
 
-    # Simulate 80 minutes
     for minute in range(1, 81):
         state.minute = minute
 
         # Half time
         if minute == 41 and state.half == 1:
             state.half = 2
+            state.half_time_recovery()
             state.possession = 'home'
             state.zone = 2
             state.phase = 0
@@ -193,13 +321,16 @@ def simulate_match(home_team, away_team, home_players, away_players,
                         f"{state.away_score} {away_team['name']}"
             })
 
-        # Check sin bin returns
+        # Sin bin returns
         returned = state.check_sin_bin_returns()
         for pid in returned:
             state.commentary.append({
                 'minute': minute,
                 'text': "A player returns from the sin bin."
             })
+
+        # Fatigue ticks every minute
+        state.tick_fatigue()
 
         # Simulate this minute
         _simulate_minute(state)
@@ -216,70 +347,106 @@ def simulate_match(home_team, away_team, home_players, away_players,
     return result
 
 
-def _simulate_minute(state):
-    """Simulate one minute of play."""
-    # Determine what happens this minute
-    event_roll = random.random()
-    tactics = state.home_tactics if state.possession == 'home' else state.away_tactics
+# ── Minute-by-Minute Simulation ───────────────────────────────────
 
-    # Probability weights based on zone and tactics
+def _simulate_minute(state):
+    """Simulate one minute of play.
+
+    Event probabilities are influenced by:
+    - Zone on the pitch
+    - Tactics (kick tendency, kick zones, tempo)
+    - Fatigue (tired teams make more errors / kick more)
+    """
+    tactics = state.home_tactics if state.possession == 'home' else state.away_tactics
+    event_roll = random.random()
+
+    # ── Dynamic kick probability ──────────────────────────────────
+    # Base kick chance varies by zone
+    base_kick = {0: 0.30, 1: 0.22, 2: 0.15, 3: 0.08, 4: 0.03}
+    kick_chance = base_kick.get(state.zone, 0.15)
+
+    # Kick tendency modifier
+    kick_tend = KICK_TENDENCY.get(tactics.get('kick_tendency', 'sometimes'), {})
+    kick_chance += kick_chance * kick_tend.get('kick_chance_mod', 0)
+
+    # Kick zones — if current zone is not in the active kick zones, reduce drastically
+    kick_zones_cfg = KICK_ZONES.get(tactics.get('kick_zones', 'own_half'), {})
+    active_zones = kick_zones_cfg.get('active_zones', [0, 1])
+    if state.zone not in active_zones:
+        kick_chance *= 0.15  # Almost never kick from non-active zones
+
+    # Fatigue increases kicking tendency (tired legs = kick it away)
+    fatigue = state.home_fatigue if state.possession == 'home' else state.away_fatigue
+    kick_chance += (fatigue / 100) * 0.08
+
+    kick_chance = max(0.02, min(0.50, kick_chance))
+
+    # ── Event distribution ────────────────────────────────────────
     if state.zone <= 1:
-        # In own territory - more likely to kick
-        if event_roll < 0.25:
+        # Own territory
+        if event_roll < kick_chance:
             _handle_kick(state)
-        elif event_roll < 0.50:
+        elif event_roll < kick_chance + 0.25:
             _handle_phase_play(state)
-        elif event_roll < 0.65:
+        elif event_roll < kick_chance + 0.40:
             _handle_set_piece(state, 'scrum')
-        elif event_roll < 0.75:
+        elif event_roll < kick_chance + 0.50:
             _handle_set_piece(state, 'lineout')
-        elif event_roll < 0.85:
+        elif event_roll < kick_chance + 0.60:
             _handle_turnover(state)
         else:
             _handle_penalty_event(state)
 
     elif state.zone == 2:
-        # Midfield - balanced play
-        if event_roll < 0.35:
-            _handle_phase_play(state)
-        elif event_roll < 0.50:
+        # Midfield
+        if event_roll < kick_chance:
             _handle_kick(state)
-        elif event_roll < 0.60:
+        elif event_roll < kick_chance + 0.32:
+            _handle_phase_play(state)
+        elif event_roll < kick_chance + 0.42:
             _handle_set_piece(state, 'scrum')
-        elif event_roll < 0.70:
+        elif event_roll < kick_chance + 0.52:
             _handle_set_piece(state, 'lineout')
-        elif event_roll < 0.82:
+        elif event_roll < kick_chance + 0.64:
             _handle_turnover(state)
-        elif event_roll < 0.92:
+        elif event_roll < kick_chance + 0.74:
             _handle_penalty_event(state)
         else:
             _handle_card_event(state)
 
     else:
-        # In opposition territory - more attacking
-        if event_roll < 0.30:
+        # Opposition territory (zones 3-4)
+        try_chance = 0.15 if state.zone == 4 else 0.10
+        if event_roll < kick_chance:
+            _handle_kick(state)
+        elif event_roll < kick_chance + 0.25:
             _handle_phase_play(state)
-        elif event_roll < 0.45:
+        elif event_roll < kick_chance + 0.25 + try_chance:
             _handle_try_opportunity(state)
-        elif event_roll < 0.55:
+        elif event_roll < kick_chance + 0.35 + try_chance:
             _handle_set_piece(state, 'scrum')
-        elif event_roll < 0.65:
+        elif event_roll < kick_chance + 0.45 + try_chance:
             _handle_set_piece(state, 'lineout')
-        elif event_roll < 0.75:
+        elif event_roll < kick_chance + 0.55 + try_chance:
             _handle_penalty_event(state)
-        elif event_roll < 0.82:
+        elif event_roll < kick_chance + 0.62 + try_chance:
             _handle_turnover(state)
-        elif event_roll < 0.88:
+        elif event_roll < kick_chance + 0.68 + try_chance:
             _handle_drop_goal_attempt(state)
         else:
             _handle_card_event(state)
 
 
+# ── Event Handlers ─────────────────────────────────────────────────
+
 def _handle_phase_play(state):
     """Handle a phase of attacking play."""
+    atk_ctx = state._build_atk_context()
+    def_ctx = state._build_def_context()
+
     result = resolve_phase_play(
         state.attacking_players, state.defending_players,
-        state.zone, state.phase
+        state.zone, state.phase, atk_ctx, def_ctx
     )
     state.phase += 1
 
@@ -302,27 +469,44 @@ def _handle_phase_play(state):
 
 
 def _handle_kick(state):
-    """Handle a territorial or tactical kick."""
-    kicker = state.get_kicker(state.possession)
-    kick_skill = kicker.get('kicking', 50)
+    """Handle a tactical kick based on kick type instructions."""
+    tactics = state.home_tactics if state.possession == 'home' else state.away_tactics
+    kick_type_key = tactics.get('kick_type', 'touch_finder')
+    kick_type_cfg = KICK_TYPE.get(kick_type_key, KICK_TYPE['touch_finder'])
+
+    # Get the right kicker based on kick type
+    primary_pos = kick_type_cfg.get('primary_kicker', 'fly_half')
+    kicker = state.get_positional_kicker(state.possession, primary_pos)
+
+    atk_ctx = state._build_atk_context()
+    result = resolve_kick(kicker, kick_type_cfg, atk_ctx)
 
     atk_team = state.attacking_team
 
-    # Good kick gains territory
-    if random.randint(1, 100) < kick_skill:
-        # Successful kick for territory
+    if result['outcome'] == 'good':
         state.swap_possession()
-        # Kicking team loses possession but gains territory
-        # After swap, zone is mirrored. A good kick means opponent gets ball in their own half
-        if state.zone > 1:
-            state.zone -= 1
+        # Territory gain based on kick type
+        territory = result.get('territory_gain', 1)
+        for _ in range(territory):
+            if state.zone > 0:
+                state.zone -= 1
         text = generate_commentary('kick_good', {
             'team': atk_team['name'],
             'kicker': kicker['name'],
             'zone': ZONE_NAMES[state.zone],
         })
+    elif result['outcome'] == 'turnover':
+        # Kick goes wrong — opponent counters from good position
+        state.swap_possession()
+        if state.zone < 4:
+            state.zone += 1  # Opponent in good position
+        text = generate_commentary('kick_poor', {
+            'team': atk_team['name'],
+            'kicker': kicker['name'],
+        })
+        text += f" {state.attacking_team['name']} counter-attack from a great position!"
     else:
-        # Poor kick - opponent gets good position
+        # Poor kick
         state.swap_possession()
         text = generate_commentary('kick_poor', {
             'team': atk_team['name'],
@@ -350,10 +534,13 @@ def _handle_set_piece(state, set_piece_type):
     if not def_forwards:
         def_forwards = state.defending_players[:8]
 
+    atk_ctx = state._build_atk_context()
+    def_ctx = state._build_def_context()
+
     if set_piece_type == 'scrum':
-        result = resolve_scrum(atk_forwards, def_forwards)
+        result = resolve_scrum(atk_forwards, def_forwards, atk_ctx, def_ctx)
     else:
-        result = resolve_lineout(atk_forwards, def_forwards)
+        result = resolve_lineout(atk_forwards, def_forwards, atk_ctx, def_ctx)
 
     atk_team = state.attacking_team
     text = generate_commentary(set_piece_type, {
@@ -363,12 +550,11 @@ def _handle_set_piece(state, set_piece_type):
     })
 
     if result['outcome'] == 'won':
-        state.phase = 0  # Clean ball
+        state.phase = 0
         if state.zone < 4:
             state.zone += 1
     elif result['outcome'] == 'penalty_won':
         state.phase = 0
-        # Penalty advantage
         if state.zone >= 3:
             _handle_penalty_kick(state)
             return
@@ -386,12 +572,18 @@ def _handle_set_piece(state, set_piece_type):
 
 def _handle_try_opportunity(state):
     """Handle a try-scoring opportunity."""
+    atk_ctx = state._build_atk_context()
+    def_ctx = state._build_def_context()
+
     result = resolve_try_attempt(
-        state.attacking_players, state.defending_players, state.zone
+        state.attacking_players, state.defending_players, state.zone,
+        atk_ctx, def_ctx
     )
 
     atk_team = state.attacking_team
-    scorer = random.choice(state.attacking_players)
+
+    # Pick a likely try scorer based on position
+    scorer = _pick_try_scorer(state.attacking_players)
 
     if result['outcome'] == 'try':
         state.add_score(state.possession, 5, 'try')
@@ -408,10 +600,8 @@ def _handle_try_opportunity(state):
             'player': scorer['name'],
         })
 
-        # Conversion attempt
         _handle_conversion(state)
 
-        # Reset after try
         state.possession = 'away' if state.possession == 'home' else 'home'
         state.zone = 2
         state.phase = 0
@@ -430,10 +620,32 @@ def _handle_try_opportunity(state):
         state.swap_possession()
 
 
+def _pick_try_scorer(players):
+    """Weighted random selection for try scorer — wings/centres more likely."""
+    weights = {
+        'left_wing': 5, 'right_wing': 5, 'fullback': 3,
+        'inside_centre': 3, 'outside_centre': 3,
+        'number_eight': 2, 'scrum_half': 2, 'fly_half': 2,
+        'blindside_flanker': 1, 'openside_flanker': 1,
+        'hooker': 1, 'lock_4': 1, 'lock_5': 1,
+        'loosehead_prop': 0.5, 'tighthead_prop': 0.5,
+    }
+    weighted = [(p, weights.get(p.get('position', ''), 1)) for p in players]
+    total = sum(w for _, w in weighted)
+    r = random.uniform(0, total)
+    cumulative = 0
+    for p, w in weighted:
+        cumulative += w
+        if r <= cumulative:
+            return p
+    return random.choice(players)
+
+
 def _handle_conversion(state):
     """Handle a conversion attempt after a try."""
     kicker = state.get_kicker(state.possession)
-    result = resolve_conversion(kicker)
+    atk_ctx = state._build_atk_context()
+    result = resolve_conversion(kicker, atk_ctx)
 
     if result['outcome'] == 'scored':
         state.add_score(state.possession, 2, 'conversion')
@@ -462,7 +674,6 @@ def _handle_penalty_event(state):
     def_team = state.defending_team
     atk_team = state.attacking_team
 
-    # Who committed the penalty
     offender = random.choice(state.defending_players)
     text = generate_commentary('penalty_awarded', {
         'team': atk_team['name'],
@@ -473,18 +684,16 @@ def _handle_penalty_event(state):
     state.commentary.append({'minute': state.minute, 'text': text})
 
     # Decision: kick at goal or kick for touch
-    if state.zone >= 2:  # In range
+    if state.zone >= 2:
         kicker = state.get_kicker(state.possession)
         if kicker.get('kicking', 50) > 55 or state.zone >= 3:
             _handle_penalty_kick(state)
         else:
-            # Kick for touch
             if state.zone < 4:
                 state.zone = min(4, state.zone + 1)
             text = f"{atk_team['name']} kick for touch and find a good lineout position."
             state.commentary.append({'minute': state.minute, 'text': text})
     else:
-        # Too far, kick for touch
         state.zone = min(4, state.zone + 2)
         text = f"{atk_team['name']} kick for touch deep into opposition territory."
         state.commentary.append({'minute': state.minute, 'text': text})
@@ -493,14 +702,12 @@ def _handle_penalty_event(state):
 def _handle_penalty_kick(state):
     """Handle a penalty kick at goal."""
     kicker = state.get_kicker(state.possession)
-    kick_skill = kicker.get('kicking', 50)
     atk_team = state.attacking_team
+    atk_ctx = state._build_atk_context()
 
-    # Distance factor based on zone
-    distance_mod = {0: -30, 1: -20, 2: -5, 3: 5, 4: 10}
-    success_chance = kick_skill + distance_mod.get(state.zone, 0)
+    result = resolve_penalty_kick(kicker, state.zone, atk_ctx)
 
-    if random.randint(1, 100) < success_chance:
+    if result['outcome'] == 'scored':
         state.add_score(state.possession, 3, 'penalty')
         text = generate_commentary('penalty_kick_good', {
             'kicker': kicker['name'],
@@ -513,7 +720,6 @@ def _handle_penalty_kick(state):
             'team_name': atk_team['name'],
             'player': kicker['name'],
         })
-        # Reset
         state.swap_possession()
         state.zone = 2
         state.phase = 0
@@ -522,7 +728,7 @@ def _handle_penalty_kick(state):
             'kicker': kicker['name'],
         })
         state.swap_possession()
-        state.zone = 1  # Opponent gets 22 dropout
+        state.zone = 1
 
     state.commentary.append({'minute': state.minute, 'text': text})
 
@@ -537,7 +743,8 @@ def _handle_drop_goal_attempt(state):
     if not fly_half:
         fly_half = state.get_kicker(state.possession)
 
-    result = resolve_drop_goal(fly_half)
+    atk_ctx = state._build_atk_context()
+    result = resolve_drop_goal(fly_half, atk_ctx)
     atk_team = state.attacking_team
 
     if result['outcome'] == 'scored':
@@ -582,7 +789,8 @@ def _handle_turnover(state):
 
 def _handle_card_event(state):
     """Handle a potential card event."""
-    result = resolve_card_check(state.defending_players)
+    def_ctx = state._build_def_context()
+    result = resolve_card_check(state.defending_players, def_ctx)
 
     if result['outcome'] == 'yellow':
         offender = random.choice(state.defending_players)
@@ -623,5 +831,4 @@ def _handle_card_event(state):
         })
         state.commentary.append({'minute': state.minute, 'text': text})
     else:
-        # No card, just a penalty
         _handle_penalty_event(state)
