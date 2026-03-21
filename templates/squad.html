@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Squad — Rugby Manager{% endblock %}
+{% block content %}
+<div class="page-header flex-between">
+    <div>
+        <h1>Squad</h1>
+        <p class="subtitle">{{ team.name }} — {{ players|length }} players</p>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Forwards</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th><th>Pos</th><th>Age</th>
+                <th>SPD</th><th>STR</th><th>STA</th><th>TAC</th>
+                <th>PAS</th><th>KIC</th><th>HAN</th>
+                <th>SCR</th><th>LIN</th><th>GS</th>
+                <th>OVR</th><th>Form</th><th>Fit</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in players if p.position in ['loosehead_prop','hooker','tighthead_prop','lock_4','lock_5','blindside_flanker','openside_flanker','number_eight'] %}
+            <tr>
+                <td><a href="{{ url_for('player_profile', player_id=p.id) }}">{{ p.name }}</a></td>
+                <td><span class="badge badge-position">{{ positions[p.position].name }}</span></td>
+                <td class="number">{{ p.age }}</td>
+                <td class="number">{{ p.speed }}</td>
+                <td class="number">{{ p.strength }}</td>
+                <td class="number">{{ p.stamina }}</td>
+                <td class="number">{{ p.tackling }}</td>
+                <td class="number">{{ p.passing }}</td>
+                <td class="number">{{ p.kicking }}</td>
+                <td class="number">{{ p.handling }}</td>
+                <td class="number">{{ p.scrummaging }}</td>
+                <td class="number">{{ p.lineout }}</td>
+                <td class="number">{{ p.game_sense }}</td>
+                <td class="number"><strong>{{ p.overall }}</strong></td>
+                <td class="number">{{ p.form }}</td>
+                <td class="number {% if p.fitness < 80 %}text-danger{% elif p.fitness < 100 %}text-warning{% endif %}">{{ p.fitness }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h2>Backs</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th><th>Pos</th><th>Age</th>
+                <th>SPD</th><th>STR</th><th>STA</th><th>TAC</th>
+                <th>PAS</th><th>KIC</th><th>HAN</th>
+                <th>AGI</th><th>GS</th>
+                <th>OVR</th><th>Form</th><th>Fit</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in players if p.position in ['scrum_half','fly_half','left_wing','inside_centre','outside_centre','right_wing','fullback'] %}
+            <tr>
+                <td><a href="{{ url_for('player_profile', player_id=p.id) }}">{{ p.name }}</a></td>
+                <td><span class="badge badge-position">{{ positions[p.position].name }}</span></td>
+                <td class="number">{{ p.age }}</td>
+                <td class="number">{{ p.speed }}</td>
+                <td class="number">{{ p.strength }}</td>
+                <td class="number">{{ p.stamina }}</td>
+                <td class="number">{{ p.tackling }}</td>
+                <td class="number">{{ p.passing }}</td>
+                <td class="number">{{ p.kicking }}</td>
+                <td class="number">{{ p.handling }}</td>
+                <td class="number">{{ p.agility }}</td>
+                <td class="number">{{ p.game_sense }}</td>
+                <td class="number"><strong>{{ p.overall }}</strong></td>
+                <td class="number">{{ p.form }}</td>
+                <td class="number {% if p.fitness < 80 %}text-danger{% elif p.fitness < 100 %}text-warning{% endif %}">{{ p.fitness }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

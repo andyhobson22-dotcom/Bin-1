@@ -1,0 +1,112 @@
+[
+    {
+        "name": "Bath Rugby",
+        "city": "Bath",
+        "stadium": "The Recreation Ground",
+        "stadium_capacity": 14500,
+        "budget": 5500000,
+        "wage_budget": 110000,
+        "reputation": 72,
+        "home_color": "#0033A0",
+        "away_color": "#FFFFFF"
+    },
+    {
+        "name": "Bristol Bears",
+        "city": "Bristol",
+        "stadium": "Ashton Gate",
+        "stadium_capacity": 27000,
+        "budget": 7000000,
+        "wage_budget": 140000,
+        "reputation": 78,
+        "home_color": "#003B5C",
+        "away_color": "#E31837"
+    },
+    {
+        "name": "Exeter Chiefs",
+        "city": "Exeter",
+        "stadium": "Sandy Park",
+        "stadium_capacity": 13500,
+        "budget": 5000000,
+        "wage_budget": 105000,
+        "reputation": 75,
+        "home_color": "#000000",
+        "away_color": "#FFFFFF"
+    },
+    {
+        "name": "Gloucester Rugby",
+        "city": "Gloucester",
+        "stadium": "Kingsholm",
+        "stadium_capacity": 16500,
+        "budget": 5200000,
+        "wage_budget": 108000,
+        "reputation": 70,
+        "home_color": "#CE1126",
+        "away_color": "#FFFFFF"
+    },
+    {
+        "name": "Harlequins",
+        "city": "London",
+        "stadium": "Twickenham Stoop",
+        "stadium_capacity": 14800,
+        "budget": 6000000,
+        "wage_budget": 125000,
+        "reputation": 76,
+        "home_color": "#5B2C6F",
+        "away_color": "#FFFFFF"
+    },
+    {
+        "name": "Leicester Tigers",
+        "city": "Leicester",
+        "stadium": "Mattioli Woods Welford Road",
+        "stadium_capacity": 25000,
+        "budget": 6500000,
+        "wage_budget": 135000,
+        "reputation": 82,
+        "home_color": "#C8102E",
+        "away_color": "#FFFFFF"
+    },
+    {
+        "name": "Northampton Saints",
+        "city": "Northampton",
+        "stadium": "Franklin's Gardens",
+        "stadium_capacity": 15200,
+        "budget": 5800000,
+        "wage_budget": 118000,
+        "reputation": 74,
+        "home_color": "#005E2F",
+        "away_color": "#000000"
+    },
+    {
+        "name": "Sale Sharks",
+        "city": "Sale",
+        "stadium": "AJ Bell Stadium",
+        "stadium_capacity": 12000,
+        "budget": 5500000,
+        "wage_budget": 115000,
+        "reputation": 73,
+        "home_color": "#003B5C",
+        "away_color": "#FFFFFF"
+    },
+    {
+        "name": "Saracens",
+        "city": "London",
+        "stadium": "StoneX Stadium",
+        "stadium_capacity": 10000,
+        "budget": 7500000,
+        "wage_budget": 145000,
+        "reputation": 85,
+        "home_color": "#000000",
+        "away_color": "#C8102E"
+    },
+    {
+        "name": "Newcastle Falcons",
+        "city": "Newcastle",
+        "stadium": "Kingston Park",
+        "stadium_capacity": 10200,
+        "budget": 4000000,
+        "wage_budget": 90000,
+        "reputation": 60,
+        "home_color": "#000000",
+        "away_color": "#FFFFFF"
+    }
+]

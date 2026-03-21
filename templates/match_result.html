@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Match Result — Rugby Manager{% endblock %}
+{% block content %}
+<div class="page-header text-center">
+    <h1>Match Report</h1>
+</div>
+
+<div class="scoreboard">
+    <span class="team-name home">{{ home_team.name }}</span>
+    <span class="score">{{ match.home_score }}</span>
+    <span class="vs">-</span>
+    <span class="score">{{ match.away_score }}</span>
+    <span class="team-name away">{{ away_team.name }}</span>
+</div>
+
+<div class="score-breakdown text-center mb-3">
+    <div>
+        <strong>{{ home_team.name }}:</strong>
+        {{ match.home_tries }}T {{ match.home_conversions }}C {{ match.home_penalties }}P {{ match.home_drop_goals }}DG
+        {% if match.home_yellow_cards %} | <span class="text-warning">{{ match.home_yellow_cards }} YC</span>{% endif %}
+        {% if match.home_red_cards %} | <span class="text-danger">{{ match.home_red_cards }} RC</span>{% endif %}
+    </div>
+    <div>
+        <strong>{{ away_team.name }}:</strong>
+        {{ match.away_tries }}T {{ match.away_conversions }}C {{ match.away_penalties }}P {{ match.away_drop_goals }}DG
+        {% if match.away_yellow_cards %} | <span class="text-warning">{{ match.away_yellow_cards }} YC</span>{% endif %}
+        {% if match.away_red_cards %} | <span class="text-danger">{{ match.away_red_cards }} RC</span>{% endif %}
+    </div>
+</div>
+
+<div class="grid grid-2">
+    <!-- Key Events -->
+    <div class="card">
+        <h2>Key Events</h2>
+        {% for event in match.events %}
+        <div class="commentary-item event-{{ event.type }}">
+            <span class="minute">{{ event.minute }}'</span>
+            {% if event.type == 'try' %}
+                TRY — {{ event.player }} ({{ event.team_name }})
+            {% elif event.type == 'conversion' %}
+                CONVERSION — {{ event.player }} ({{ event.team_name }})
+            {% elif event.type == 'penalty_goal' %}
+                PENALTY GOAL — {{ event.player }} ({{ event.team_name }})
+            {% elif event.type == 'drop_goal' %}
+                DROP GOAL — {{ event.player }} ({{ event.team_name }})
+            {% elif event.type == 'yellow_card' %}
+                YELLOW CARD — {{ event.player }} ({{ event.team_name }})
+            {% elif event.type == 'red_card' %}
+                RED CARD — {{ event.player }} ({{ event.team_name }})
+            {% else %}
+                {{ event.type }} — {{ event.get('player', '') }}
+            {% endif %}
+        </div>
+        {% endfor %}
+        {% if not match.events %}
+            <p class="text-muted">No key events recorded.</p>
+        {% endif %}
+    </div>
+
+    <!-- Full Commentary -->
+    <div class="card">
+        <h2>Commentary</h2>
+        <div class="commentary-feed">
+            {% for c in match.commentary %}
+            {% set event_class = '' %}
+            {% for e in match.events if e.minute == c.minute %}
+                {% set event_class = 'event-' + e.type %}
+            {% endfor %}
+            <div class="commentary-item {{ event_class }}">
+                <span class="minute">{{ c.minute }}'</span>
+                {{ c.text }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="text-center mt-2">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Back to Dashboard</a>
+</div>
+{% endblock %}

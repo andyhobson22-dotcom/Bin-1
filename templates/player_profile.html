@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}{{ player.name }} — Rugby Manager{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>{{ player.name }}</h1>
+    <p class="subtitle">{{ positions[player.position].name }} | Age {{ player.age }} | {{ team_name }}</p>
+</div>
+
+<div class="grid grid-2">
+    <div class="card">
+        <h2>Physical</h2>
+        {% for stat, label in [('speed', 'Speed'), ('strength', 'Strength'), ('stamina', 'Stamina'), ('agility', 'Agility')] %}
+        <div class="stat-bar">
+            <span class="stat-bar-label">{{ label }}</span>
+            <div class="stat-bar-track">
+                <div class="stat-bar-fill {% if player[stat] >= 80 %}stat-high{% elif player[stat] >= 60 %}stat-good{% elif player[stat] >= 40 %}stat-med{% else %}stat-low{% endif %}"
+                     style="width: {{ player[stat] }}%"></div>
+            </div>
+            <span class="stat-bar-value">{{ player[stat] }}</span>
+        </div>
+        {% endfor %}
+
+        <h2 class="mt-2">Technical</h2>
+        {% for stat, label in [('passing', 'Passing'), ('kicking', 'Kicking'), ('tackling', 'Tackling'), ('handling', 'Handling')] %}
+        <div class="stat-bar">
+            <span class="stat-bar-label">{{ label }}</span>
+            <div class="stat-bar-track">
+                <div class="stat-bar-fill {% if player[stat] >= 80 %}stat-high{% elif player[stat] >= 60 %}stat-good{% elif player[stat] >= 40 %}stat-med{% else %}stat-low{% endif %}"
+                     style="width: {{ player[stat] }}%"></div>
+            </div>
+            <span class="stat-bar-value">{{ player[stat] }}</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="card">
+        <h2>Set Piece</h2>
+        {% for stat, label in [('scrummaging', 'Scrummaging'), ('lineout', 'Lineout')] %}
+        <div class="stat-bar">
+            <span class="stat-bar-label">{{ label }}</span>
+            <div class="stat-bar-track">
+                <div class="stat-bar-fill {% if player[stat] >= 80 %}stat-high{% elif player[stat] >= 60 %}stat-good{% elif player[stat] >= 40 %}stat-med{% else %}stat-low{% endif %}"
+                     style="width: {{ player[stat] }}%"></div>
+            </div>
+            <span class="stat-bar-value">{{ player[stat] }}</span>
+        </div>
+        {% endfor %}
+
+        <h2 class="mt-2">Mental</h2>
+        {% for stat, label in [('game_sense', 'Game Sense'), ('leadership', 'Leadership'), ('discipline', 'Discipline')] %}
+        <div class="stat-bar">
+            <span class="stat-bar-label">{{ label }}</span>
+            <div class="stat-bar-track">
+                <div class="stat-bar-fill {% if player[stat] >= 80 %}stat-high{% elif player[stat] >= 60 %}stat-good{% elif player[stat] >= 40 %}stat-med{% else %}stat-low{% endif %}"
+                     style="width: {{ player[stat] }}%"></div>
+            </div>
+            <span class="stat-bar-value">{{ player[stat] }}</span>
+        </div>
+        {% endfor %}
+
+        <h2 class="mt-2">Status</h2>
+        <div class="stat-bar">
+            <span class="stat-bar-label">Form</span>
+            <div class="stat-bar-track">
+                <div class="stat-bar-fill {% if player.form >= 70 %}stat-high{% elif player.form >= 50 %}stat-good{% elif player.form >= 30 %}stat-med{% else %}stat-low{% endif %}"
+                     style="width: {{ player.form }}%"></div>
+            </div>
+            <span class="stat-bar-value">{{ player.form }}</span>
+        </div>
+        <div class="stat-bar">
+            <span class="stat-bar-label">Fitness</span>
+            <div class="stat-bar-track">
+                <div class="stat-bar-fill {% if player.fitness >= 80 %}stat-high{% elif player.fitness >= 60 %}stat-good{% elif player.fitness >= 40 %}stat-med{% else %}stat-low{% endif %}"
+                     style="width: {{ player.fitness }}%"></div>
+            </div>
+            <span class="stat-bar-value">{{ player.fitness }}</span>
+        </div>
+        <div class="stat-bar">
+            <span class="stat-bar-label">Morale</span>
+            <div class="stat-bar-track">
+                <div class="stat-bar-fill {% if player.morale >= 70 %}stat-high{% elif player.morale >= 50 %}stat-good{% elif player.morale >= 30 %}stat-med{% else %}stat-low{% endif %}"
+                     style="width: {{ player.morale }}%"></div>
+            </div>
+            <span class="stat-bar-value">{{ player.morale }}</span>
+        </div>
+        <div class="stat-bar">
+            <span class="stat-bar-label">Potential</span>
+            <div class="stat-bar-track">
+                <div class="stat-bar-fill stat-good" style="width: {{ player.potential }}%"></div>
+            </div>
+            <span class="stat-bar-value">{{ player.potential }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Contract</h2>
+    <p>Wage: <strong>&pound;{{ "{:,}".format(player.wage) }}/week</strong></p>
+    <p>Contract expires: <strong>{{ player.contract_end }} season(s)</strong></p>
+    <p>Overall Rating: <strong>{{ player.overall }}</strong></p>
+</div>
+{% endblock %}

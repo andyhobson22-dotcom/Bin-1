@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Training — Rugby Manager{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Training</h1>
+    <p class="subtitle">Set your weekly training focus</p>
+</div>
+
+<form method="POST" action="{{ url_for('set_training_focus') }}">
+    <div class="card">
+        <h2>Training Focus</h2>
+        <div class="tactic-options">
+            {% for key, focus in training_focuses.items() %}
+            <label class="tactic-option {% if current_training.focus == key %}selected{% endif %}">
+                <input type="radio" name="focus" value="{{ key }}"
+                       {% if current_training.focus == key %}checked{% endif %}
+                       style="display: none;"
+                       onchange="this.closest('.tactic-option').classList.add('selected'); document.querySelectorAll('input[name=focus]').forEach(i => { if(i !== this) i.closest('.tactic-option').classList.remove('selected'); })">
+                <strong>{{ focus.name }}</strong><br>
+                <span class="text-muted" style="font-size: 0.8em;">{{ focus.description }}</span><br>
+                <span class="text-muted" style="font-size: 0.75em;">
+                    Improves: {{ focus.affected_stats | join(', ') }}<br>
+                    Injury risk: {{ "%.0f" | format(focus.injury_risk * 100) }}%
+                </span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Set Training</button>
+</form>
+
+{% if updates %}
+<div class="card mt-2">
+    <h2>Training Report</h2>
+    {% for u in updates %}
+    <p>
+        {% if u.type == 'injury' %}
+            <span class="text-danger">INJURY:</span> {{ u.player }} — fitness dropped to {{ u.fitness }}
+        {% elif u.type == 'recovery' %}
+            <span class="text-success">RECOVERY:</span> {{ u.player }} — fitness now {{ u.fitness }}
+        {% endif %}
+    </p>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

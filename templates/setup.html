@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Choose Your Team — Rugby Manager{% endblock %}
+{% block content %}
+<div class="page-header text-center">
+    <h1>Rugby Manager</h1>
+    <p class="subtitle">Choose your team to begin your management career</p>
+</div>
+
+<div class="team-select-grid">
+    {% for team in teams %}
+    <a href="{{ url_for('select_team', team_id=team.id) }}" class="team-select-card" style="border-left: 4px solid {{ team.home_color }}">
+        <div class="team-name">{{ team.name }}</div>
+        <div class="team-info">
+            {{ team.city }} | {{ team.stadium }}<br>
+            Capacity: {{ "{:,}".format(team.stadium_capacity) }} |
+            Rep: {{ team.reputation }}/100<br>
+            Budget: &pound;{{ "{:,.0f}".format(team.budget) }}
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% endblock %}

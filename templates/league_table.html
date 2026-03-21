@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}League Table — Rugby Manager{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>League Table</h1>
+    <p class="subtitle">Season {{ game_state.season }}</p>
+</div>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Pos</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th>
+                <th>PF</th><th>PA</th><th>PD</th><th>TF</th><th>TA</th>
+                <th>BP</th><th>Pts</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in standings %}
+            <tr class="{% if s.team_id == player_team_id %}highlight{% endif %}{% if loop.index <= 4 %} text-success{% endif %}">
+                <td class="number"><strong>{{ loop.index }}</strong></td>
+                <td>{{ s.team_name }}</td>
+                <td class="number">{{ s.played }}</td>
+                <td class="number">{{ s.won }}</td>
+                <td class="number">{{ s.drawn }}</td>
+                <td class="number">{{ s.lost }}</td>
+                <td class="number">{{ s.points_for }}</td>
+                <td class="number">{{ s.points_against }}</td>
+                <td class="number">{{ s.points_for - s.points_against }}</td>
+                <td class="number">{{ s.tries_for }}</td>
+                <td class="number">{{ s.tries_against }}</td>
+                <td class="number">{{ s.bonus_points }}</td>
+                <td class="number"><strong>{{ s.points }}</strong></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <p class="text-muted mt-1" style="font-size: 0.8em;">
+        Top 4 qualify for playoffs | 4 pts for a win, 2 for a draw |
+        Bonus: 4+ tries scored = 1pt, losing by 7 or fewer = 1pt
+    </p>
+</div>
+{% endblock %}

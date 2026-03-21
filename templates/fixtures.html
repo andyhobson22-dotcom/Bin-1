@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Fixtures — Rugby Manager{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Fixtures & Results</h1>
+    <p class="subtitle">Season {{ game_state.season }}</p>
+</div>
+
+{% for round_num in range(1, game_state.total_rounds + 1) %}
+<div class="card">
+    <h2>Round {{ round_num }}
+        {% if round_num == game_state.current_round %}
+            <span class="badge badge-position">Current</span>
+        {% endif %}
+    </h2>
+    <table>
+        <thead><tr><th>Home</th><th></th><th>Away</th><th></th></tr></thead>
+        <tbody>
+            {% for f in all_fixtures if f.round == round_num %}
+            <tr class="{% if f.home_team_id == player_team_id or f.away_team_id == player_team_id %}highlight{% endif %}">
+                <td>{{ f.home_team_name }}</td>
+                <td class="text-center">
+                    {% if f.played %}
+                        <strong>{{ f.home_score }} - {{ f.away_score }}</strong>
+                    {% else %}
+                        vs
+                    {% endif %}
+                </td>
+                <td>{{ f.away_team_name }}</td>
+                <td>
+                    {% if f.played and f.match_id %}
+                        <a href="{{ url_for('match_result', match_id=f.match_id) }}" class="btn btn-sm">Report</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endfor %}
+{% endblock %}

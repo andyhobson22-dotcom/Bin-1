@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Transfers — Rugby Manager{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Transfer Market</h1>
+    <p class="subtitle">Budget: &pound;{{ "{:,.0f}".format(team.budget) }}</p>
+</div>
+
+<div class="card">
+    <h2>Available Players</h2>
+    <form method="GET" action="{{ url_for('transfers_page') }}" class="mb-2">
+        <label>Filter by position:</label>
+        <select name="position" onchange="this.form.submit()">
+            <option value="">All Positions</option>
+            {% for key, pos in positions.items() %}
+            <option value="{{ key }}" {% if selected_position == key %}selected{% endif %}>{{ pos.name }}</option>
+            {% endfor %}
+        </select>
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th><th>Pos</th><th>Age</th><th>Rating</th>
+                <th>Value</th><th>Wage</th><th>Team</th><th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in targets %}
+            <tr>
+                <td><a href="{{ url_for('player_profile', player_id=p.id) }}">{{ p.name }}</a></td>
+                <td><span class="badge badge-position">{{ positions[p.position].name }}</span></td>
+                <td class="number">{{ p.age }}</td>
+                <td class="number"><strong>{{ p.rating }}</strong></td>
+                <td class="number">&pound;{{ "{:,.0f}".format(p.value) }}</td>
+                <td class="number">&pound;{{ "{:,.0f}".format(p.wage) }}/w</td>
+                <td>{{ p.team_name }}</td>
+                <td>
+                    <form method="POST" action="{{ url_for('make_transfer_action') }}" style="display:inline;">
+                        <input type="hidden" name="player_id" value="{{ p.id }}">
+                        <input type="hidden" name="from_team_id" value="{{ p.team_id }}">
+                        <input type="hidden" name="fee" value="{{ p.value }}">
+                        <button type="submit" class="btn btn-sm btn-primary">Sign</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not targets %}
+            <tr><td colspan="8" class="text-center text-muted">No affordable targets found.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

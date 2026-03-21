@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Tactics — Rugby Manager{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Tactics</h1>
+    <p class="subtitle">Set your match strategy</p>
+</div>
+
+<form method="POST" action="{{ url_for('save_tactics') }}">
+    {% for category, options in tactical_options.items() %}
+    <div class="card">
+        <div class="tactics-group">
+            <h2>{{ category.replace('_', ' ').title() }}</h2>
+            <div class="tactic-options">
+                {% for key, option in options.items() %}
+                <label class="tactic-option {% if current_tactics.get(category) == key %}selected{% endif %}">
+                    <input type="radio" name="{{ category }}" value="{{ key }}"
+                           {% if current_tactics.get(category) == key %}checked{% endif %}
+                           style="display: none;"
+                           onchange="this.closest('.tactic-option').classList.add('selected'); document.querySelectorAll('input[name={{ category }}]').forEach(i => { if(i !== this) i.closest('.tactic-option').classList.remove('selected'); })">
+                    <strong>{{ option.name }}</strong><br>
+                    <span class="text-muted" style="font-size: 0.8em;">{{ option.description }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <button type="submit" class="btn btn-primary btn-lg">Save Tactics</button>
+</form>
+{% endblock %}
