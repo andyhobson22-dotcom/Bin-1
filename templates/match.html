@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Match Day — Rugby Manager{% endblock %}
+{% block content %}
+<div class="page-header text-center">
+    <h1>Match Day — Round {{ game_state.current_round }}</h1>
+</div>
+
+{% if fixture %}
+    {% if fixture.played %}
+        <div class="text-center mb-2">
+            <p>This match has already been played.</p>
+            <a href="{{ url_for('match_result', match_id=fixture.match_id) }}" class="btn btn-primary">View Match Report</a>
+        </div>
+    {% else %}
+        <div class="scoreboard">
+            <span class="team-name home">{{ fixture.home_team_name }}</span>
+            <span class="vs">vs</span>
+            <span class="team-name away">{{ fixture.away_team_name }}</span>
+        </div>
+
+        <div class="text-center mb-3">
+            <form method="POST" action="{{ url_for('play_match_action') }}">
+                <input type="hidden" name="fixture_id" value="{{ fixture.id }}">
+                <button type="submit" class="btn btn-primary btn-lg">Kick Off!</button>
+            </form>
+        </div>
+
+        <div class="grid grid-2">
+            <div class="card">
+                <h2>{{ fixture.home_team_name }} — Starting XV</h2>
+                <table>
+                    <thead><tr><th>#</th><th>Name</th><th>Pos</th><th>OVR</th></tr></thead>
+                    <tbody>
+                    {% for p in home_players[:15] %}
+                    <tr>
+                        <td class="number">{{ loop.index }}</td>
+                        <td>{{ p.name }}</td>
+                        <td><span class="badge badge-position">{{ positions[p.position].name }}</span></td>
+                        <td class="number">{{ p.overall }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="card">
+                <h2>{{ fixture.away_team_name }} — Starting XV</h2>
+                <table>
+                    <thead><tr><th>#</th><th>Name</th><th>Pos</th><th>OVR</th></tr></thead>
+                    <tbody>
+                    {% for p in away_players[:15] %}
+                    <tr>
+                        <td class="number">{{ loop.index }}</td>
+                        <td>{{ p.name }}</td>
+                        <td><span class="badge badge-position">{{ positions[p.position].name }}</span></td>
+                        <td class="number">{{ p.overall }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% endif %}
+{% else %}
+    <p>No fixture found for this round.</p>
+{% endif %}
+{% endblock %}

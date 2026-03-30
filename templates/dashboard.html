@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Rugby Manager{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>{{ team.name }}</h1>
+    <p class="subtitle">Season {{ game_state.season }} — Round {{ game_state.current_round }} of {{ game_state.total_rounds }}</p>
+</div>
+
+<div class="grid grid-2">
+    <!-- Next Match -->
+    <div class="card">
+        <h2>Next Match — Round {{ game_state.current_round }}</h2>
+        {% if player_fixture %}
+            {% if player_fixture.played %}
+                <div class="scoreboard" style="padding: 16px;">
+                    <span class="team-name home">{{ player_fixture.home_team_name }}</span>
+                    <span class="score">{{ player_fixture.home_score }}</span>
+                    <span class="vs">-</span>
+                    <span class="score">{{ player_fixture.away_score }}</span>
+                    <span class="team-name away">{{ player_fixture.away_team_name }}</span>
+                </div>
+                <div class="text-center">
+                    <a href="{{ url_for('match_result', match_id=player_fixture.match_id) }}" class="btn">View Match Report</a>
+                </div>
+            {% else %}
+                <div class="scoreboard" style="padding: 16px;">
+                    <span class="team-name home">{{ player_fixture.home_team_name }}</span>
+                    <span class="vs">vs</span>
+                    <span class="team-name away">{{ player_fixture.away_team_name }}</span>
+                </div>
+                <div class="text-center">
+                    <a href="{{ url_for('play_match_page') }}" class="btn btn-primary btn-lg">Play Match</a>
+                </div>
+            {% endif %}
+        {% else %}
+            <p class="text-muted">No fixture scheduled</p>
+        {% endif %}
+    </div>
+
+    <!-- League Position -->
+    <div class="card">
+        <h2>League Position</h2>
+        <table>
+            <thead>
+                <tr><th>Pos</th><th>Team</th><th>P</th><th>W</th><th>L</th><th>PD</th><th>Pts</th></tr>
+            </thead>
+            <tbody>
+                {% for s in standings[:5] %}
+                <tr class="{% if s.team_id == team.id %}highlight{% endif %}">
+                    <td class="number">{{ loop.index }}</td>
+                    <td>{{ s.team_name }}</td>
+                    <td class="number">{{ s.played }}</td>
+                    <td class="number">{{ s.won }}</td>
+                    <td class="number">{{ s.lost }}</td>
+                    <td class="number">{{ s.points_for - s.points_against }}</td>
+                    <td class="number"><strong>{{ s.points }}</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="mt-1">
+            <a href="{{ url_for('league_table') }}" class="btn btn-sm">Full Table</a>
+        </div>
+    </div>
+
+    <!-- This Round's Results -->
+    <div class="card">
+        <h2>Round {{ game_state.current_round }} Fixtures</h2>
+        <table>
+            <thead><tr><th>Home</th><th></th><th>Away</th></tr></thead>
+            <tbody>
+                {% for f in round_fixtures %}
+                <tr class="{% if f.home_is_player or f.away_is_player %}highlight{% endif %}">
+                    <td>{{ f.home_team_name }}</td>
+                    <td class="text-center">
+                        {% if f.played %}
+                            <strong>{{ f.home_score }} - {{ f.away_score }}</strong>
+                        {% else %}
+                            vs
+                        {% endif %}
+                    </td>
+                    <td>{{ f.away_team_name }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card">
+        <h2>Actions</h2>
+        <div class="flex gap-1" style="flex-wrap: wrap;">
+            {% if not all_played %}
+                <a href="{{ url_for('advance_week') }}" class="btn btn-primary">Advance Week</a>
+            {% else %}
+                <a href="{{ url_for('advance_week') }}" class="btn btn-primary">Next Round</a>
+            {% endif %}
+            <a href="{{ url_for('squad') }}" class="btn">Manage Squad</a>
+            <a href="{{ url_for('training_page') }}" class="btn">Training</a>
+            <a href="{{ url_for('save_game_route') }}" class="btn">Save Game</a>
+        </div>
+
+        <div class="mt-2">
+            <h3>Finances</h3>
+            <p>Budget: <strong>&pound;{{ "{:,.0f}".format(team.budget) }}</strong></p>
+            <p class="text-muted">Wage Budget: &pound;{{ "{:,.0f}".format(team.wage_budget) }}/week</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
