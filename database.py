@@ -38,6 +38,9 @@ CREATE TABLE IF NOT EXISTS players (
     team_id INTEGER,
     position TEXT NOT NULL,
     secondary_positions TEXT DEFAULT '[]',
+    nationality TEXT DEFAULT 'England',
+    height INTEGER DEFAULT 183,
+    weight INTEGER DEFAULT 95,
     -- Physical
     speed INTEGER DEFAULT 50,
     strength INTEGER DEFAULT 50,

@@ -7,7 +7,7 @@ from flask import Flask, render_template, redirect, url_for, request, flash, ses
 from config import Config
 from database import init_db, get_db
 from models.player import (
-    get_team_players, get_player, get_overall_rating, POSITIONS,
+    get_team_players, get_player, get_overall_rating, get_position_ratings, POSITIONS,
 )
 from models.team import get_all_teams, get_team, get_player_team, set_player_team
 from models.match import get_match
@@ -79,12 +79,16 @@ def _load_initial_data():
             sec_pos = json.dumps(p.get('secondary_positions', []))
             db.execute("""
                 INSERT INTO players (name, age, team_id, position, secondary_positions,
+                    nationality, height, weight,
                     speed, strength, stamina, agility, passing, kicking, tackling,
                     handling, scrummaging, lineout, game_sense, leadership, discipline,
                     potential, form, morale, fitness, wage, contract_end)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 p['name'], p['age'], team_id, p['position'], sec_pos,
+                p.get('nationality', 'England'),
+                p.get('height', 183),
+                p.get('weight', 95),
                 p['speed'], p['strength'], p['stamina'], p['agility'],
                 p['passing'], p['kicking'], p['tackling'], p['handling'],
                 p['scrummaging'], p['lineout'], p['game_sense'],
@@ -193,8 +197,15 @@ def player_profile(player_id):
     player['overall'] = get_overall_rating(player)
     team = get_team(player['team_id'])
     team_name = team['name'] if team else 'Free Agent'
+    player_value = get_player_value(player)
+    position_ratings = get_position_ratings(player)
 
-    return render_template('player_profile.html', player=player, team_name=team_name)
+    return render_template('player_profile.html',
+                           player=player,
+                           team_name=team_name,
+                           team=team,
+                           player_value=player_value,
+                           position_ratings=position_ratings)
 
 
 @app.route('/tactics')

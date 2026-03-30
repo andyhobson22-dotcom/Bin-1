@@ -147,6 +147,45 @@ POSITION_TO_PROFILE = {
     'fullback': 'fullback',
 }
 
+NATIONALITIES = [
+    ('England', 70), ('Wales', 10), ('Ireland', 8), ('Scotland', 7),
+    ('South Africa', 2), ('New Zealand', 1), ('Australia', 1), ('Fiji', 1),
+]
+NATIONALITY_NAMES = [n for n, _ in NATIONALITIES]
+NATIONALITY_WEIGHTS = [w for _, w in NATIONALITIES]
+
+# Height (cm) and weight (kg) ranges by position group
+BODY_PROFILES = {
+    'loosehead_prop': {'height': (178, 188), 'weight': (110, 125)},
+    'hooker': {'height': (175, 185), 'weight': (100, 115)},
+    'tighthead_prop': {'height': (180, 190), 'weight': (115, 130)},
+    'lock': {'height': (193, 205), 'weight': (105, 120)},
+    'flanker': {'height': (183, 195), 'weight': (95, 112)},
+    'number_eight': {'height': (185, 198), 'weight': (100, 118)},
+    'scrum_half': {'height': (170, 182), 'weight': (78, 90)},
+    'fly_half': {'height': (175, 188), 'weight': (82, 95)},
+    'centre': {'height': (178, 192), 'weight': (88, 105)},
+    'wing': {'height': (175, 190), 'weight': (80, 98)},
+    'fullback': {'height': (178, 190), 'weight': (82, 95)},
+}
+
+# Real players to inject into specific teams (only Sale Sharks for now)
+REAL_PLAYERS = {
+    "Sale Sharks": [
+        {
+            "name": "Tom Curry", "age": 26, "position": "openside_flanker",
+            "secondary_positions": ["blindside_flanker", "number_eight"],
+            "nationality": "England", "height": 185, "weight": 110,
+            "potential": 90, "form": 72, "morale": 75, "fitness": 95,
+            "wage": 12000, "contract_end": 3,
+            "speed": 74, "strength": 82, "stamina": 88, "agility": 68,
+            "passing": 58, "kicking": 35, "tackling": 92, "handling": 65,
+            "scrummaging": 55, "lineout": 62, "game_sense": 80,
+            "leadership": 75, "discipline": 72, "kick_chase": 72,
+        },
+    ],
+}
+
 # Secondary position mappings
 SECONDARY_POSITIONS = {
     'loosehead_prop': ['tighthead_prop'],
@@ -223,11 +262,22 @@ def generate_player(position, team_reputation, used_names):
     sec_pos = [p for p in SECONDARY_POSITIONS.get(position, [])
                if random.random() > 0.5]
 
+    # Nationality
+    nationality = random.choices(NATIONALITY_NAMES, weights=NATIONALITY_WEIGHTS, k=1)[0]
+
+    # Height and weight from position profile
+    body = BODY_PROFILES[POSITION_TO_PROFILE[position]]
+    height = random.randint(*body['height'])
+    weight = random.randint(*body['weight'])
+
     return {
         'name': name,
         'age': age,
         'position': position,
         'secondary_positions': sec_pos,
+        'nationality': nationality,
+        'height': height,
+        'weight': weight,
         'potential': potential,
         'form': random.randint(40, 75),
         'morale': random.randint(55, 80),
@@ -238,16 +288,28 @@ def generate_player(position, team_reputation, used_names):
     }
 
 
-def generate_squad(team_reputation):
+def generate_squad(team_reputation, team_name=None):
     """Generate a full squad of ~30 players."""
     used_names = set()
     players = []
 
+    # Track positions filled by real players
+    real_position_counts = {}
+    real_players = REAL_PLAYERS.get(team_name, [])
+    for rp in real_players:
+        players.append(rp)
+        used_names.add(rp['name'])
+        pos = rp['position']
+        real_position_counts[pos] = real_position_counts.get(pos, 0) + 1
+
     for position, count in SQUAD_TEMPLATE.items():
-        for i in range(count):
+        already_filled = real_position_counts.get(position, 0)
+        remaining = count - already_filled
+        for i in range(remaining):
             player = generate_player(position, team_reputation, used_names)
             # First player at each position is generally better (starter)
-            if i == 0:
+            # but only if no real player already fills that starter slot
+            if i == 0 and already_filled == 0:
                 for stat in ['speed', 'strength', 'stamina', 'agility', 'passing',
                              'kicking', 'tackling', 'handling', 'scrummaging',
                              'lineout', 'game_sense', 'kick_chase']:
@@ -265,7 +327,7 @@ def generate_all_data():
 
     all_players = {}
     for team in teams:
-        squad = generate_squad(team['reputation'])
+        squad = generate_squad(team['reputation'], team['name'])
         all_players[team['name']] = squad
 
     with open(os.path.join(data_dir, 'players.json'), 'w') as f:

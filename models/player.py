@@ -81,3 +81,16 @@ def get_position_rating(player, position):
 def get_overall_rating(player):
     """Overall rating in the player's primary position."""
     return get_position_rating(player, player.get('position', ''))
+
+
+def get_position_ratings(player):
+    """Get ratings for primary and all secondary positions."""
+    ratings = {}
+    primary = player.get('position', '')
+    ratings[primary] = get_position_rating(player, primary)
+
+    secondary = json.loads(player.get('secondary_positions', '[]'))
+    for pos in secondary:
+        ratings[pos] = get_position_rating(player, pos)
+
+    return ratings
