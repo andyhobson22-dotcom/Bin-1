@@ -5,38 +5,38 @@ from database import get_db
 TRAINING_FOCUSES = {
     'fitness': {
         'name': 'Fitness',
-        'description': 'Improve stamina and recovery',
-        'affected_stats': ['stamina', 'speed'],
+        'description': 'Improve stamina, endurance and explosiveness',
+        'affected_stats': ['leg_drive', 'tenacity', 'pace', 'explosiveness'],
         'injury_risk': 0.03,
     },
     'attack': {
         'name': 'Attack',
-        'description': 'Work on attacking patterns and handling',
-        'affected_stats': ['passing', 'handling', 'agility'],
+        'description': 'Work on attacking patterns, handling and passing',
+        'affected_stats': ['short_passing', 'long_passing', 'handling', 'offload', 'stepping'],
         'injury_risk': 0.05,
     },
     'defence': {
         'name': 'Defence',
         'description': 'Improve tackling technique and defensive systems',
-        'affected_stats': ['tackling', 'game_sense', 'strength'],
+        'affected_stats': ['tackling', 'awareness', 'positioning', 'jackling', 'rucking'],
         'injury_risk': 0.04,
     },
     'set_piece': {
         'name': 'Set Piece',
         'description': 'Scrum and lineout drills',
-        'affected_stats': ['scrummaging', 'lineout'],
+        'affected_stats': ['scrum_drive', 'scrum_tech', 'jumping', 'lifting', 'mauling'],
         'injury_risk': 0.06,
     },
     'kicking': {
         'name': 'Kicking',
         'description': 'Improve kicking accuracy and variety',
-        'affected_stats': ['kicking'],
+        'affected_stats': ['goal_kicking', 'touch_finder', 'grubber', 'box_kicking', 'chipping'],
         'injury_risk': 0.02,
     },
     'balanced': {
         'name': 'Balanced',
         'description': 'General training across all areas',
-        'affected_stats': ['stamina', 'tackling', 'handling', 'passing'],
+        'affected_stats': ['tenacity', 'tackling', 'handling', 'short_passing', 'awareness'],
         'injury_risk': 0.03,
     },
 }

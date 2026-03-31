@@ -19,25 +19,170 @@ POSITIONS = {
     'fullback': {'number': 15, 'name': 'Fullback', 'group': 'back'},
 }
 
-# Which stats matter most for each position (weights for overall rating)
-POSITION_WEIGHTS = {
-    'loosehead_prop': {'scrummaging': 3, 'strength': 3, 'tackling': 2, 'stamina': 1, 'handling': 1},
-    'hooker': {'scrummaging': 2, 'lineout': 3, 'strength': 2, 'tackling': 2, 'handling': 1},
-    'tighthead_prop': {'scrummaging': 3, 'strength': 3, 'tackling': 2, 'stamina': 1, 'handling': 1},
-    'lock_4': {'lineout': 3, 'strength': 2, 'scrummaging': 2, 'tackling': 2, 'stamina': 1},
-    'lock_5': {'lineout': 3, 'strength': 2, 'scrummaging': 2, 'tackling': 2, 'stamina': 1},
-    'blindside_flanker': {'tackling': 3, 'strength': 2, 'stamina': 2, 'speed': 1, 'handling': 1, 'lineout': 1},
-    'openside_flanker': {'tackling': 3, 'speed': 2, 'stamina': 2, 'handling': 1, 'game_sense': 2},
-    'number_eight': {'strength': 3, 'tackling': 2, 'handling': 2, 'speed': 1, 'stamina': 1, 'game_sense': 1},
-    'scrum_half': {'passing': 3, 'speed': 2, 'game_sense': 2, 'kicking': 1, 'tackling': 1, 'handling': 1},
-    'fly_half': {'kicking': 3, 'passing': 3, 'game_sense': 3, 'handling': 1, 'tackling': 1},
-    'inside_centre': {'tackling': 2, 'strength': 2, 'passing': 2, 'speed': 1, 'handling': 1, 'game_sense': 2},
-    'outside_centre': {'speed': 2, 'passing': 2, 'tackling': 2, 'handling': 1, 'agility': 2, 'game_sense': 1},
-    'left_wing': {'speed': 3, 'agility': 2, 'handling': 2, 'tackling': 1, 'kicking': 1, 'kick_chase': 2},
-    'right_wing': {'speed': 3, 'agility': 2, 'handling': 2, 'tackling': 1, 'kicking': 1, 'kick_chase': 2},
-    'fullback': {'kicking': 2, 'speed': 2, 'handling': 2, 'tackling': 1, 'game_sense': 2, 'agility': 1, 'kick_chase': 1},
+# The 35 stats grouped for display
+STAT_GROUPS = {
+    'Physical': [
+        ('stopping_power', 'Stopping Power'),
+        ('explosiveness', 'Explosiveness'),
+        ('leg_drive', 'Leg Drive'),
+        ('pace', 'Pace'),
+        ('acceleration', 'Acceleration'),
+        ('agility', 'Agility'),
+        ('strength', 'Strength'),
+    ],
+    'Mental': [
+        ('aggression', 'Aggression'),
+        ('composure', 'Composure'),
+        ('concentration', 'Concentration'),
+        ('awareness', 'Awareness'),
+        ('running_lines', 'Running Lines'),
+        ('discipline', 'Discipline'),
+        ('tenacity', 'Tenacity'),
+        ('scanning', 'Scanning'),
+        ('positioning', 'Positioning'),
+    ],
+    'Technical': [
+        ('long_passing', 'Long Passing'),
+        ('handling', 'Handling'),
+        ('high_ball', 'High Ball'),
+        ('offload', 'Offload'),
+        ('tackling', 'Tackling'),
+        ('rucking', 'Rucking'),
+        ('mauling', 'Mauling'),
+        ('jackling', 'Jackling'),
+        ('grubber', 'Grubber'),
+        ('chipping', 'Chipping'),
+        ('box_kicking', 'Box Kicking'),
+        ('stepping', 'Stepping'),
+        ('short_passing', 'Short Passing'),
+    ],
+    'Set Piece': [
+        ('goal_kicking', 'Goal Kicking'),
+        ('scrum_drive', 'Scrum Drive'),
+        ('scrum_tech', 'Scrum Tech'),
+        ('touch_finder', 'Touch Finder'),
+        ('jumping', 'Jumping'),
+        ('lifting', 'Lifting'),
+    ],
 }
 
+# Which stats matter most for each position (weights for overall rating)
+POSITION_WEIGHTS = {
+    'loosehead_prop': {
+        'scrum_drive': 3, 'scrum_tech': 3, 'strength': 3, 'leg_drive': 2,
+        'tackling': 2, 'mauling': 2, 'stopping_power': 1,
+    },
+    'hooker': {
+        'scrum_drive': 2, 'jumping': 2, 'lifting': 2, 'strength': 2,
+        'tackling': 2, 'handling': 2, 'short_passing': 1,
+    },
+    'tighthead_prop': {
+        'scrum_drive': 3, 'scrum_tech': 3, 'strength': 3, 'leg_drive': 2,
+        'tackling': 2, 'mauling': 2, 'stopping_power': 1,
+    },
+    'lock_4': {
+        'jumping': 3, 'lifting': 2, 'strength': 2, 'scrum_drive': 2,
+        'tackling': 2, 'leg_drive': 1, 'mauling': 1,
+    },
+    'lock_5': {
+        'jumping': 3, 'lifting': 2, 'strength': 2, 'scrum_drive': 2,
+        'tackling': 2, 'leg_drive': 1, 'mauling': 1,
+    },
+    'blindside_flanker': {
+        'tackling': 3, 'strength': 2, 'tenacity': 2, 'rucking': 2,
+        'pace': 1, 'handling': 1, 'jackling': 1, 'mauling': 1,
+    },
+    'openside_flanker': {
+        'tackling': 3, 'jackling': 3, 'tenacity': 2, 'pace': 2,
+        'rucking': 2, 'awareness': 2, 'explosiveness': 1,
+    },
+    'number_eight': {
+        'strength': 3, 'tackling': 2, 'handling': 2, 'rucking': 2,
+        'pace': 1, 'leg_drive': 1, 'awareness': 1, 'offload': 1,
+    },
+    'scrum_half': {
+        'short_passing': 3, 'long_passing': 2, 'pace': 2, 'scanning': 2,
+        'awareness': 2, 'box_kicking': 1, 'tackling': 1, 'acceleration': 1,
+    },
+    'fly_half': {
+        'goal_kicking': 3, 'long_passing': 3, 'scanning': 3, 'awareness': 2,
+        'composure': 2, 'touch_finder': 1, 'short_passing': 1,
+    },
+    'inside_centre': {
+        'tackling': 2, 'strength': 2, 'short_passing': 2, 'pace': 1,
+        'handling': 1, 'awareness': 2, 'stepping': 1, 'stopping_power': 1,
+    },
+    'outside_centre': {
+        'pace': 2, 'short_passing': 2, 'tackling': 2, 'handling': 1,
+        'agility': 2, 'awareness': 1, 'stepping': 1, 'running_lines': 1,
+    },
+    'left_wing': {
+        'pace': 3, 'acceleration': 2, 'agility': 2, 'handling': 2,
+        'stepping': 2, 'high_ball': 1, 'tackling': 1,
+    },
+    'right_wing': {
+        'pace': 3, 'acceleration': 2, 'agility': 2, 'handling': 2,
+        'stepping': 2, 'high_ball': 1, 'tackling': 1,
+    },
+    'fullback': {
+        'high_ball': 2, 'pace': 2, 'handling': 2, 'tackling': 1,
+        'awareness': 2, 'agility': 1, 'goal_kicking': 1, 'touch_finder': 1,
+        'positioning': 1,
+    },
+}
+
+# ── Engine Compatibility Layer ────────────────────────────────────────
+# Maps old stat names used by the match engine to averages of new stats.
+# This lets the entire engine work without modification.
+
+STAT_COMPAT = {
+    'speed': ('pace', 'acceleration'),
+    'stamina': ('leg_drive', 'tenacity'),
+    'passing': ('short_passing', 'long_passing'),
+    'kicking': ('goal_kicking', 'touch_finder', 'grubber', 'box_kicking'),
+    'kick_chase': ('pace', 'explosiveness', 'tenacity'),
+    'scrummaging': ('scrum_drive', 'scrum_tech'),
+    'lineout': ('jumping', 'lifting'),
+    'game_sense': ('awareness', 'scanning', 'positioning'),
+    'leadership': ('composure', 'awareness'),
+    # These map 1:1 (same name in old and new)
+    'tackling': ('tackling',),
+    'handling': ('handling',),
+    'strength': ('strength',),
+    'agility': ('agility',),
+    'discipline': ('discipline',),
+}
+
+
+def compat_stat(player, old_stat, default=50):
+    """Get an old-style stat value from a player using the new stat system.
+
+    If the player already has the old stat (e.g. from a legacy DB), use it.
+    Otherwise compute it as the average of the mapped new stats.
+    """
+    # If the old stat exists directly on the player, use it
+    if old_stat in STAT_COMPAT:
+        new_stats = STAT_COMPAT[old_stat]
+        vals = [player.get(s, default) for s in new_stats]
+        return int(sum(vals) / len(vals))
+    return player.get(old_stat, default)
+
+
+def inject_compat_stats(player):
+    """Add computed old-style stats to a player dict for engine compatibility.
+
+    Call this before passing players to the match engine.
+    """
+    for old_stat, new_stats in STAT_COMPAT.items():
+        if old_stat not in player or old_stat in ('tackling', 'handling',
+                                                    'strength', 'agility',
+                                                    'discipline'):
+            vals = [player.get(s, 50) for s in new_stats]
+            player[old_stat] = int(sum(vals) / len(vals))
+    return player
+
+
+# ── Core Functions ────────────────────────────────────────────────────
 
 def get_player(player_id):
     db = get_db()

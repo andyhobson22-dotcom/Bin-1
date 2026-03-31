@@ -747,6 +747,53 @@ label {
     color: #fff;
 }
 
+/* Compact Stat Rows (for 35-stat player profile) */
+.stat-card {
+    padding: 16px 20px;
+}
+
+.stat-card h2 {
+    margin-bottom: 10px;
+}
+
+.stat-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0;
+}
+
+.stat-row-label {
+    width: 110px;
+    font-size: 0.78em;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.stat-row-track {
+    flex: 1;
+    height: 5px;
+    background: var(--bg-secondary);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.stat-row-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s;
+}
+
+.stat-row-value {
+    width: 28px;
+    text-align: right;
+    font-size: 0.8em;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.text-accent { color: var(--accent); }
+
 /* Player Value Block */
 .player-value-block {
     padding: 4px 0;

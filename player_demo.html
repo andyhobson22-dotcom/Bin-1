@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tom Curry — Player Profile</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-card: #1c2128;
+            --bg-hover: #262c36;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #6e7681;
+            --accent: #58a6ff;
+            --success: #3fb950;
+            --warning: #d29922;
+            --danger: #f85149;
+            --border: #30363d;
+            --sale-sharks: #003B5C;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 24px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        /* ── Hero Card ── */
+        .hero {
+            position: relative;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--sale-sharks);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+
+        .hero-accent {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100px; height: 100%;
+            background: var(--sale-sharks);
+            opacity: 0.07;
+        }
+
+        .hero-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 28px 32px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-shirt {
+            font-size: 0.85em;
+            font-weight: 700;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+        }
+
+        .hero-name {
+            font-size: 2em;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin: 2px 0 6px;
+        }
+
+        .hero-details {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 6px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.78em;
+            font-weight: 600;
+            background: rgba(88, 166, 255, 0.15);
+            color: var(--accent);
+        }
+
+        .hero-team {
+            color: var(--text-secondary);
+            font-size: 0.95em;
+        }
+
+        .hero-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+            font-size: 0.85em;
+        }
+
+        .hero-meta .sep { color: var(--text-muted); }
+
+        .ovr {
+            width: 82px; height: 82px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid var(--success);
+            color: var(--success);
+            background: rgba(63, 185, 80, 0.1);
+            flex-shrink: 0;
+        }
+
+        .ovr-num { font-size: 1.9em; font-weight: 800; line-height: 1; }
+        .ovr-label { font-size: 0.6em; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; }
+
+        /* ── Info Bar ── */
+        .info-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1px;
+            background: var(--border);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+
+        .info-item {
+            background: var(--bg-card);
+            padding: 14px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .info-label {
+            font-size: 0.72em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .info-value {
+            font-size: 0.92em;
+            font-weight: 600;
+        }
+
+        .info-fitness-track {
+            height: 6px;
+            background: var(--bg-secondary);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+
+        .info-fitness-fill {
+            height: 100%;
+            border-radius: 3px;
+            width: 95%;
+            background: var(--success);
+        }
+
+        /* ── Stat Grid ── */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px 20px;
+        }
+
+        .stat-card h2 {
+            font-size: 0.95em;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+        }
+
+        .stat-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 3px 0;
+        }
+
+        .stat-label {
+            width: 105px;
+            font-size: 0.78em;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .stat-track {
+            flex: 1;
+            height: 5px;
+            background: var(--bg-secondary);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .stat-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.4s ease;
+        }
+
+        .stat-val {
+            width: 28px;
+            text-align: right;
+            font-size: 0.8em;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        /* Stat color tiers */
+        .fill-elite { background: var(--success); }
+        .fill-good { background: var(--accent); }
+        .fill-avg { background: var(--warning); }
+        .fill-low { background: var(--danger); }
+
+        .val-elite { color: var(--success); }
+        .val-good { color: var(--accent); }
+        .val-avg { color: var(--warning); }
+        .val-low { color: var(--danger); }
+
+        /* ── Bottom Cards ── */
+        .bottom-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .bottom-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px 20px;
+        }
+
+        .bottom-card h2 {
+            font-size: 0.95em;
+            margin-bottom: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+        }
+
+        .pos-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 7px 12px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            background: var(--bg-secondary);
+        }
+
+        .pos-row.primary {
+            background: rgba(88, 166, 255, 0.1);
+            border: 1px solid rgba(88, 166, 255, 0.2);
+        }
+
+        .pos-name { font-size: 0.88em; }
+
+        .pos-rating {
+            display: inline-block;
+            width: 34px; height: 26px;
+            line-height: 26px;
+            text-align: center;
+            border-radius: 5px;
+            font-size: 0.82em;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .value-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+        }
+
+        .value-label { color: var(--text-secondary); font-size: 0.88em; }
+        .value-amount { font-size: 1.4em; font-weight: 700; color: var(--success); }
+
+        /* ── Responsive ── */
+        @media (max-width: 700px) {
+            .hero-content { flex-direction: column; text-align: center; gap: 16px; }
+            .hero-details { justify-content: center; }
+            .hero-meta { justify-content: center; }
+            .info-bar { grid-template-columns: 1fr 1fr; }
+            .stat-grid, .bottom-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ══ HERO ══ -->
+<div class="hero">
+    <div class="hero-accent"></div>
+    <div class="hero-content">
+        <div>
+            <div class="hero-shirt">#7</div>
+            <h1 class="hero-name">Tom Curry</h1>
+            <div class="hero-details">
+                <span class="badge">Openside Flanker</span>
+                <span class="hero-team">Sale Sharks</span>
+            </div>
+            <div class="hero-meta">
+                <span>26 yrs</span>
+                <span class="sep">|</span>
+                <span>England</span>
+                <span class="sep">|</span>
+                <span>185cm</span>
+                <span class="sep">|</span>
+                <span>110kg</span>
+            </div>
+        </div>
+        <div class="ovr">
+            <span class="ovr-num">82</span>
+            <span class="ovr-label">OVR</span>
+        </div>
+    </div>
+</div>
+
+<!-- ══ INFO BAR ══ -->
+<div class="info-bar">
+    <div class="info-item">
+        <span class="info-label">Form</span>
+        <span class="info-value" style="color: var(--success);">72 &#9650;</span>
+    </div>
+    <div class="info-item">
+        <span class="info-label">Fitness</span>
+        <div class="info-fitness-track"><div class="info-fitness-fill"></div></div>
+        <span class="info-value">95%</span>
+    </div>
+    <div class="info-item">
+        <span class="info-label">Morale</span>
+        <span class="info-value" style="color: var(--success);">Good</span>
+    </div>
+    <div class="info-item">
+        <span class="info-label">Contract</span>
+        <span class="info-value">3yr &middot; &pound;12,000/wk</span>
+    </div>
+</div>
+
+<!-- ══ STATS ══ -->
+<div class="stat-grid">
+
+    <!-- Physical -->
+    <div class="stat-card">
+        <h2>Physical</h2>
+        <div class="stat-row"><span class="stat-label">Stopping Power</span><div class="stat-track"><div class="stat-fill fill-good" style="width:78%"></div></div><span class="stat-val val-good">78</span></div>
+        <div class="stat-row"><span class="stat-label">Explosiveness</span><div class="stat-track"><div class="stat-fill fill-elite" style="width:80%"></div></div><span class="stat-val val-elite">80</span></div>
+        <div class="stat-row"><span class="stat-label">Leg Drive</span><div class="stat-track"><div class="stat-fill fill-good" style="width:76%"></div></div><span class="stat-val val-good">76</span></div>
+        <div class="stat-row"><span class="stat-label">Pace</span><div class="stat-track"><div class="stat-fill fill-good" style="width:74%"></div></div><span class="stat-val val-good">74</span></div>
+        <div class="stat-row"><span class="stat-label">Acceleration</span><div class="stat-track"><div class="stat-fill fill-good" style="width:78%"></div></div><span class="stat-val val-good">78</span></div>
+        <div class="stat-row"><span class="stat-label">Agility</span><div class="stat-track"><div class="stat-fill fill-good" style="width:68%"></div></div><span class="stat-val val-good">68</span></div>
+        <div class="stat-row"><span class="stat-label">Strength</span><div class="stat-track"><div class="stat-fill fill-elite" style="width:82%"></div></div><span class="stat-val val-elite">82</span></div>
+    </div>
+
+    <!-- Mental -->
+    <div class="stat-card">
+        <h2>Mental</h2>
+        <div class="stat-row"><span class="stat-label">Aggression</span><div class="stat-track"><div class="stat-fill fill-elite" style="width:85%"></div></div><span class="stat-val val-elite">85</span></div>
+        <div class="stat-row"><span class="stat-label">Composure</span><div class="stat-track"><div class="stat-fill fill-good" style="width:72%"></div></div><span class="stat-val val-good">72</span></div>
+        <div class="stat-row"><span class="stat-label">Concentration</span><div class="stat-track"><div class="stat-fill fill-good" style="width:78%"></div></div><span class="stat-val val-good">78</span></div>
+        <div class="stat-row"><span class="stat-label">Awareness</span><div class="stat-track"><div class="stat-fill fill-elite" style="width:80%"></div></div><span class="stat-val val-elite">80</span></div>
+        <div class="stat-row"><span class="stat-label">Running Lines</span><div class="stat-track"><div class="stat-fill fill-good" style="width:68%"></div></div><span class="stat-val val-good">68</span></div>
+        <div class="stat-row"><span class="stat-label">Discipline</span><div class="stat-track"><div class="stat-fill fill-good" style="width:72%"></div></div><span class="stat-val val-good">72</span></div>
+        <div class="stat-row"><span class="stat-label">Tenacity</span><div class="stat-track"><div class="stat-fill fill-elite" style="width:92%"></div></div><span class="stat-val val-elite">92</span></div>
+        <div class="stat-row"><span class="stat-label">Scanning</span><div class="stat-track"><div class="stat-fill fill-good" style="width:78%"></div></div><span class="stat-val val-good">78</span></div>
+        <div class="stat-row"><span class="stat-label">Positioning</span><div class="stat-track"><div class="stat-fill fill-elite" style="width:82%"></div></div><span class="stat-val val-elite">82</span></div>
+    </div>
+
+    <!-- Technical -->
+    <div class="stat-card">
+        <h2>Technical</h2>
+        <div class="stat-row"><span class="stat-label">Long Passing</span><div class="stat-track"><div class="stat-fill fill-avg" style="width:42%"></div></div><span class="stat-val val-avg">42</span></div>
+        <div class="stat-row"><span class="stat-label">Handling</span><div class="stat-track"><div class="stat-fill fill-good" style="width:65%"></div></div><span class="stat-val val-good">65</span></div>
+        <div class="stat-row"><span class="stat-label">High Ball</span><div class="stat-track"><div class="stat-fill fill-avg" style="width:55%"></div></div><span class="stat-val val-avg">55</span></div>
+        <div class="stat-row"><span class="stat-label">Offload</span><div class="stat-track"><div class="stat-fill fill-avg" style="width:58%"></div></div><span class="stat-val val-avg">58</span></div>
+        <div class="stat-row"><span class="stat-label">Tackling</span><div class="stat-track"><div class="stat-fill fill-elite" style="width:92%"></div></div><span class="stat-val val-elite">92</span></div>
+        <div class="stat-row"><span class="stat-label">Rucking</span><div class="stat-track"><div class="stat-fill fill-elite" style="width:88%"></div></div><span class="stat-val val-elite">88</span></div>
+        <div class="stat-row"><span class="stat-label">Mauling</span><div class="stat-track"><div class="stat-fill fill-good" style="width:68%"></div></div><span class="stat-val val-good">68</span></div>
+        <div class="stat-row"><span class="stat-label">Jackling</span><div class="stat-track"><div class="stat-fill fill-elite" style="width:90%"></div></div><span class="stat-val val-elite">90</span></div>
+        <div class="stat-row"><span class="stat-label">Grubber</span><div class="stat-track"><div class="stat-fill fill-low" style="width:18%"></div></div><span class="stat-val val-low">18</span></div>
+        <div class="stat-row"><span class="stat-label">Chipping</span><div class="stat-track"><div class="stat-fill fill-low" style="width:15%"></div></div><span class="stat-val val-low">15</span></div>
+        <div class="stat-row"><span class="stat-label">Box Kicking</span><div class="stat-track"><div class="stat-fill fill-low" style="width:10%"></div></div><span class="stat-val val-low">10</span></div>
+        <div class="stat-row"><span class="stat-label">Stepping</span><div class="stat-track"><div class="stat-fill fill-avg" style="width:52%"></div></div><span class="stat-val val-avg">52</span></div>
+        <div class="stat-row"><span class="stat-label">Short Passing</span><div class="stat-track"><div class="stat-fill fill-avg" style="width:55%"></div></div><span class="stat-val val-avg">55</span></div>
+    </div>
+
+    <!-- Set Piece -->
+    <div class="stat-card">
+        <h2>Set Piece</h2>
+        <div class="stat-row"><span class="stat-label">Goal Kicking</span><div class="stat-track"><div class="stat-fill fill-low" style="width:10%"></div></div><span class="stat-val val-low">10</span></div>
+        <div class="stat-row"><span class="stat-label">Scrum Drive</span><div class="stat-track"><div class="stat-fill fill-good" style="width:62%"></div></div><span class="stat-val val-good">62</span></div>
+        <div class="stat-row"><span class="stat-label">Scrum Tech</span><div class="stat-track"><div class="stat-fill fill-avg" style="width:55%"></div></div><span class="stat-val val-avg">55</span></div>
+        <div class="stat-row"><span class="stat-label">Touch Finder</span><div class="stat-track"><div class="stat-fill fill-low" style="width:22%"></div></div><span class="stat-val val-low">22</span></div>
+        <div class="stat-row"><span class="stat-label">Jumping</span><div class="stat-track"><div class="stat-fill fill-good" style="width:65%"></div></div><span class="stat-val val-good">65</span></div>
+        <div class="stat-row"><span class="stat-label">Lifting</span><div class="stat-track"><div class="stat-fill fill-avg" style="width:55%"></div></div><span class="stat-val val-avg">55</span></div>
+    </div>
+</div>
+
+<!-- ══ POSITIONS & VALUE ══ -->
+<div class="bottom-grid">
+    <div class="bottom-card">
+        <h2>Positions</h2>
+        <div class="pos-row primary">
+            <span class="pos-name">Openside Flanker</span>
+            <span class="pos-rating fill-elite">82</span>
+        </div>
+        <div class="pos-row">
+            <span class="pos-name">Blindside Flanker</span>
+            <span class="pos-rating fill-good">74</span>
+        </div>
+        <div class="pos-row">
+            <span class="pos-name">Number Eight</span>
+            <span class="pos-rating fill-good">69</span>
+        </div>
+    </div>
+    <div class="bottom-card">
+        <h2>Value & Potential</h2>
+        <div class="value-row">
+            <span class="value-label">Transfer Value</span>
+            <span class="value-amount">&pound;1,250,000</span>
+        </div>
+        <div class="stat-row" style="margin-top:12px;">
+            <span class="stat-label">Potential</span>
+            <div class="stat-track"><div class="stat-fill fill-elite" style="width:90%"></div></div>
+            <span class="stat-val val-elite">90</span>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

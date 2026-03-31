@@ -7,7 +7,8 @@ from flask import Flask, render_template, redirect, url_for, request, flash, ses
 from config import Config
 from database import init_db, get_db
 from models.player import (
-    get_team_players, get_player, get_overall_rating, get_position_ratings, POSITIONS,
+    get_team_players, get_player, get_overall_rating, get_position_ratings,
+    POSITIONS, STAT_GROUPS, inject_compat_stats,
 )
 from models.team import get_all_teams, get_team, get_player_team, set_player_team
 from models.match import get_match
@@ -80,21 +81,53 @@ def _load_initial_data():
             db.execute("""
                 INSERT INTO players (name, age, team_id, position, secondary_positions,
                     nationality, height, weight,
-                    speed, strength, stamina, agility, passing, kicking, tackling,
-                    handling, scrummaging, lineout, game_sense, leadership, discipline,
+                    stopping_power, explosiveness, leg_drive, pace, acceleration,
+                    agility, strength,
+                    aggression, composure, concentration, awareness, running_lines,
+                    discipline, tenacity, scanning, positioning,
+                    long_passing, handling, high_ball, offload, tackling, rucking,
+                    mauling, jackling, grubber, chipping, box_kicking, stepping,
+                    short_passing,
+                    goal_kicking, scrum_drive, scrum_tech, touch_finder, jumping, lifting,
                     potential, form, morale, fitness, wage, contract_end)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?)
             """, (
                 p['name'], p['age'], team_id, p['position'], sec_pos,
                 p.get('nationality', 'England'),
                 p.get('height', 183),
                 p.get('weight', 95),
-                p['speed'], p['strength'], p['stamina'], p['agility'],
-                p['passing'], p['kicking'], p['tackling'], p['handling'],
-                p['scrummaging'], p['lineout'], p['game_sense'],
-                p['leadership'], p['discipline'], p['potential'],
-                p['form'], p['morale'], p['fitness'],
-                p['wage'], p['contract_end'],
+                # Physical
+                p.get('stopping_power', 50), p.get('explosiveness', 50),
+                p.get('leg_drive', 50), p.get('pace', 50),
+                p.get('acceleration', 50), p.get('agility', 50),
+                p.get('strength', 50),
+                # Mental
+                p.get('aggression', 50), p.get('composure', 50),
+                p.get('concentration', 50), p.get('awareness', 50),
+                p.get('running_lines', 50), p.get('discipline', 50),
+                p.get('tenacity', 50), p.get('scanning', 50),
+                p.get('positioning', 50),
+                # Technical
+                p.get('long_passing', 50), p.get('handling', 50),
+                p.get('high_ball', 50), p.get('offload', 50),
+                p.get('tackling', 50), p.get('rucking', 50),
+                p.get('mauling', 50), p.get('jackling', 50),
+                p.get('grubber', 50), p.get('chipping', 50),
+                p.get('box_kicking', 50), p.get('stepping', 50),
+                p.get('short_passing', 50),
+                # Set Piece
+                p.get('goal_kicking', 50), p.get('scrum_drive', 50),
+                p.get('scrum_tech', 50), p.get('touch_finder', 50),
+                p.get('jumping', 50), p.get('lifting', 50),
+                # Meta
+                p.get('potential', 60), p.get('form', 50),
+                p.get('morale', 70), p.get('fitness', 100),
+                p.get('wage', 5000), p.get('contract_end', 2),
             ))
 
     db.commit()
@@ -205,7 +238,8 @@ def player_profile(player_id):
                            team_name=team_name,
                            team=team,
                            player_value=player_value,
-                           position_ratings=position_ratings)
+                           position_ratings=position_ratings,
+                           stat_groups=STAT_GROUPS)
 
 
 @app.route('/tactics')
