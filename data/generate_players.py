@@ -29,124 +29,6 @@ LAST_NAMES = [
     "Heyes", "Wells", "Chessum", "Kelly", "Randall", "Lloyd", "Moroni",
 ]
 
-# Squad template: position -> count of players needed
-SQUAD_TEMPLATE = {
-    'loosehead_prop': 2,
-    'hooker': 2,
-    'tighthead_prop': 2,
-    'lock_4': 2,
-    'lock_5': 2,
-    'blindside_flanker': 2,
-    'openside_flanker': 2,
-    'number_eight': 2,
-    'scrum_half': 2,
-    'fly_half': 2,
-    'left_wing': 2,
-    'inside_centre': 2,
-    'outside_centre': 2,
-    'right_wing': 2,
-    'fullback': 2,
-}
-
-# Base stat profiles by position group
-STAT_PROFILES = {
-    'loosehead_prop': {
-        'speed': (30, 50), 'strength': (70, 95), 'stamina': (50, 75),
-        'agility': (25, 50), 'passing': (20, 45), 'kicking': (15, 35),
-        'tackling': (55, 80), 'handling': (30, 55), 'scrummaging': (70, 95),
-        'lineout': (15, 35), 'game_sense': (35, 60), 'leadership': (30, 70),
-        'discipline': (40, 75), 'kick_chase': (15, 35),
-    },
-    'hooker': {
-        'speed': (35, 55), 'strength': (65, 90), 'stamina': (55, 80),
-        'agility': (35, 55), 'passing': (30, 55), 'kicking': (15, 35),
-        'tackling': (60, 85), 'handling': (40, 65), 'scrummaging': (60, 85),
-        'lineout': (65, 95), 'game_sense': (40, 65), 'leadership': (35, 75),
-        'discipline': (45, 75), 'kick_chase': (30, 55),
-    },
-    'tighthead_prop': {
-        'speed': (25, 45), 'strength': (75, 99), 'stamina': (50, 75),
-        'agility': (20, 45), 'passing': (15, 40), 'kicking': (10, 30),
-        'tackling': (55, 80), 'handling': (25, 50), 'scrummaging': (75, 99),
-        'lineout': (15, 35), 'game_sense': (30, 55), 'leadership': (25, 65),
-        'discipline': (40, 70), 'kick_chase': (15, 30),
-    },
-    'lock': {
-        'speed': (35, 55), 'strength': (65, 90), 'stamina': (55, 80),
-        'agility': (30, 50), 'passing': (25, 50), 'kicking': (15, 35),
-        'tackling': (55, 80), 'handling': (35, 60), 'scrummaging': (55, 80),
-        'lineout': (70, 95), 'game_sense': (40, 65), 'leadership': (40, 80),
-        'discipline': (45, 75), 'kick_chase': (30, 55),
-    },
-    'flanker': {
-        'speed': (50, 75), 'strength': (60, 85), 'stamina': (65, 90),
-        'agility': (45, 70), 'passing': (35, 60), 'kicking': (15, 40),
-        'tackling': (70, 95), 'handling': (40, 65), 'scrummaging': (45, 70),
-        'lineout': (40, 70), 'game_sense': (50, 75), 'leadership': (40, 75),
-        'discipline': (45, 75), 'kick_chase': (45, 75),
-    },
-    'number_eight': {
-        'speed': (45, 70), 'strength': (65, 90), 'stamina': (60, 85),
-        'agility': (40, 65), 'passing': (35, 60), 'kicking': (15, 40),
-        'tackling': (60, 85), 'handling': (45, 70), 'scrummaging': (50, 75),
-        'lineout': (35, 60), 'game_sense': (50, 75), 'leadership': (45, 80),
-        'discipline': (45, 75), 'kick_chase': (40, 65),
-    },
-    'scrum_half': {
-        'speed': (60, 85), 'strength': (30, 55), 'stamina': (60, 85),
-        'agility': (60, 85), 'passing': (70, 95), 'kicking': (45, 75),
-        'tackling': (40, 65), 'handling': (60, 85), 'scrummaging': (15, 30),
-        'lineout': (15, 30), 'game_sense': (60, 85), 'leadership': (45, 80),
-        'discipline': (50, 80), 'kick_chase': (40, 65),
-    },
-    'fly_half': {
-        'speed': (50, 75), 'strength': (30, 55), 'stamina': (55, 80),
-        'agility': (55, 80), 'passing': (70, 95), 'kicking': (70, 95),
-        'tackling': (35, 60), 'handling': (60, 85), 'scrummaging': (10, 25),
-        'lineout': (10, 25), 'game_sense': (70, 95), 'leadership': (50, 85),
-        'discipline': (55, 85), 'kick_chase': (30, 55),
-    },
-    'centre': {
-        'speed': (55, 80), 'strength': (50, 75), 'stamina': (55, 80),
-        'agility': (55, 80), 'passing': (50, 80), 'kicking': (35, 65),
-        'tackling': (55, 80), 'handling': (50, 75), 'scrummaging': (10, 25),
-        'lineout': (10, 25), 'game_sense': (55, 80), 'leadership': (35, 70),
-        'discipline': (50, 80), 'kick_chase': (40, 70),
-    },
-    'wing': {
-        'speed': (70, 99), 'strength': (40, 65), 'stamina': (55, 80),
-        'agility': (65, 90), 'passing': (35, 60), 'kicking': (30, 60),
-        'tackling': (35, 65), 'handling': (50, 80), 'scrummaging': (10, 20),
-        'lineout': (10, 25), 'game_sense': (45, 70), 'leadership': (25, 55),
-        'discipline': (50, 80), 'kick_chase': (60, 95),
-    },
-    'fullback': {
-        'speed': (60, 85), 'strength': (35, 60), 'stamina': (55, 80),
-        'agility': (60, 85), 'passing': (45, 75), 'kicking': (60, 90),
-        'tackling': (40, 70), 'handling': (55, 85), 'scrummaging': (10, 20),
-        'lineout': (10, 25), 'game_sense': (60, 85), 'leadership': (35, 65),
-        'discipline': (55, 85), 'kick_chase': (50, 80),
-    },
-}
-
-POSITION_TO_PROFILE = {
-    'loosehead_prop': 'loosehead_prop',
-    'hooker': 'hooker',
-    'tighthead_prop': 'tighthead_prop',
-    'lock_4': 'lock',
-    'lock_5': 'lock',
-    'blindside_flanker': 'flanker',
-    'openside_flanker': 'flanker',
-    'number_eight': 'number_eight',
-    'scrum_half': 'scrum_half',
-    'fly_half': 'fly_half',
-    'inside_centre': 'centre',
-    'outside_centre': 'centre',
-    'left_wing': 'wing',
-    'right_wing': 'wing',
-    'fullback': 'fullback',
-}
-
 NATIONALITIES = [
     ('England', 70), ('Wales', 10), ('Ireland', 8), ('Scotland', 7),
     ('South Africa', 2), ('New Zealand', 1), ('Australia', 1), ('Fiji', 1),
@@ -169,21 +51,231 @@ BODY_PROFILES = {
     'fullback': {'height': (178, 190), 'weight': (82, 95)},
 }
 
-# Real players to inject into specific teams (only Sale Sharks for now)
-REAL_PLAYERS = {
-    "Sale Sharks": [
-        {
-            "name": "Tom Curry", "age": 26, "position": "openside_flanker",
-            "secondary_positions": ["blindside_flanker", "number_eight"],
-            "nationality": "England", "height": 185, "weight": 110,
-            "potential": 90, "form": 72, "morale": 75, "fitness": 95,
-            "wage": 12000, "contract_end": 3,
-            "speed": 74, "strength": 82, "stamina": 88, "agility": 68,
-            "passing": 58, "kicking": 35, "tackling": 92, "handling": 65,
-            "scrummaging": 55, "lineout": 62, "game_sense": 80,
-            "leadership": 75, "discipline": 72, "kick_chase": 72,
-        },
-    ],
+# Squad template: position -> count of players needed
+SQUAD_TEMPLATE = {
+    'loosehead_prop': 2,
+    'hooker': 2,
+    'tighthead_prop': 2,
+    'lock_4': 2,
+    'lock_5': 2,
+    'blindside_flanker': 2,
+    'openside_flanker': 2,
+    'number_eight': 2,
+    'scrum_half': 2,
+    'fly_half': 2,
+    'left_wing': 2,
+    'inside_centre': 2,
+    'outside_centre': 2,
+    'right_wing': 2,
+    'fullback': 2,
+}
+
+# All 35 stats grouped
+ALL_STATS = [
+    # Physical (7)
+    'stopping_power', 'explosiveness', 'leg_drive', 'pace', 'acceleration',
+    'agility', 'strength',
+    # Mental (9)
+    'aggression', 'composure', 'concentration', 'awareness', 'running_lines',
+    'discipline', 'tenacity', 'scanning', 'positioning',
+    # Technical (13)
+    'long_passing', 'handling', 'high_ball', 'offload', 'tackling',
+    'rucking', 'mauling', 'jackling', 'grubber', 'chipping',
+    'box_kicking', 'stepping', 'short_passing',
+    # Set Piece (6)
+    'goal_kicking', 'scrum_drive', 'scrum_tech', 'touch_finder',
+    'jumping', 'lifting',
+]
+
+# Base stat profiles by position group — ranges for each of the 35 stats
+STAT_PROFILES = {
+    'loosehead_prop': {
+        # Physical
+        'stopping_power': (65, 90), 'explosiveness': (30, 55), 'leg_drive': (70, 95),
+        'pace': (25, 45), 'acceleration': (25, 45), 'agility': (20, 42),
+        'strength': (75, 99),
+        # Mental
+        'aggression': (55, 80), 'composure': (35, 60), 'concentration': (40, 65),
+        'awareness': (30, 55), 'running_lines': (15, 35), 'discipline': (40, 70),
+        'tenacity': (55, 80), 'scanning': (25, 45), 'positioning': (40, 65),
+        # Technical
+        'long_passing': (10, 30), 'handling': (25, 50), 'high_ball': (10, 25),
+        'offload': (20, 45), 'tackling': (55, 80), 'rucking': (55, 80),
+        'mauling': (65, 90), 'jackling': (15, 35), 'grubber': (5, 15),
+        'chipping': (5, 15), 'box_kicking': (5, 10), 'stepping': (10, 30),
+        'short_passing': (25, 50),
+        # Set Piece
+        'goal_kicking': (5, 15), 'scrum_drive': (70, 95), 'scrum_tech': (65, 90),
+        'touch_finder': (10, 25), 'jumping': (15, 35), 'lifting': (50, 75),
+    },
+    'hooker': {
+        'stopping_power': (55, 80), 'explosiveness': (35, 60), 'leg_drive': (55, 80),
+        'pace': (35, 55), 'acceleration': (35, 58), 'agility': (30, 52),
+        'strength': (65, 88),
+        'aggression': (55, 80), 'composure': (40, 65), 'concentration': (50, 75),
+        'awareness': (40, 65), 'running_lines': (25, 45), 'discipline': (40, 70),
+        'tenacity': (55, 80), 'scanning': (35, 60), 'positioning': (45, 70),
+        'long_passing': (15, 35), 'handling': (40, 65), 'high_ball': (15, 35),
+        'offload': (25, 50), 'tackling': (60, 85), 'rucking': (55, 80),
+        'mauling': (55, 80), 'jackling': (25, 50), 'grubber': (5, 15),
+        'chipping': (5, 15), 'box_kicking': (5, 10), 'stepping': (15, 35),
+        'short_passing': (35, 60),
+        'goal_kicking': (5, 15), 'scrum_drive': (55, 80), 'scrum_tech': (50, 75),
+        'touch_finder': (10, 25), 'jumping': (35, 60), 'lifting': (45, 70),
+    },
+    'tighthead_prop': {
+        'stopping_power': (70, 95), 'explosiveness': (25, 50), 'leg_drive': (75, 99),
+        'pace': (20, 40), 'acceleration': (20, 40), 'agility': (15, 38),
+        'strength': (78, 99),
+        'aggression': (55, 85), 'composure': (35, 60), 'concentration': (40, 65),
+        'awareness': (25, 50), 'running_lines': (10, 30), 'discipline': (35, 65),
+        'tenacity': (60, 85), 'scanning': (20, 40), 'positioning': (35, 60),
+        'long_passing': (5, 25), 'handling': (20, 45), 'high_ball': (5, 20),
+        'offload': (15, 40), 'tackling': (55, 78), 'rucking': (55, 78),
+        'mauling': (68, 92), 'jackling': (10, 30), 'grubber': (5, 12),
+        'chipping': (5, 12), 'box_kicking': (5, 10), 'stepping': (8, 25),
+        'short_passing': (20, 45),
+        'goal_kicking': (5, 12), 'scrum_drive': (75, 99), 'scrum_tech': (72, 95),
+        'touch_finder': (8, 22), 'jumping': (15, 35), 'lifting': (50, 75),
+    },
+    'lock': {
+        'stopping_power': (55, 80), 'explosiveness': (35, 58), 'leg_drive': (55, 80),
+        'pace': (35, 55), 'acceleration': (30, 52), 'agility': (25, 48),
+        'strength': (65, 90),
+        'aggression': (55, 82), 'composure': (40, 65), 'concentration': (45, 70),
+        'awareness': (40, 65), 'running_lines': (25, 45), 'discipline': (40, 72),
+        'tenacity': (60, 85), 'scanning': (35, 58), 'positioning': (45, 70),
+        'long_passing': (10, 30), 'handling': (30, 55), 'high_ball': (35, 60),
+        'offload': (25, 50), 'tackling': (55, 80), 'rucking': (55, 80),
+        'mauling': (55, 82), 'jackling': (20, 45), 'grubber': (5, 15),
+        'chipping': (5, 15), 'box_kicking': (5, 10), 'stepping': (12, 30),
+        'short_passing': (25, 50),
+        'goal_kicking': (5, 15), 'scrum_drive': (50, 75), 'scrum_tech': (45, 70),
+        'touch_finder': (10, 25), 'jumping': (70, 95), 'lifting': (60, 85),
+    },
+    'flanker': {
+        'stopping_power': (55, 80), 'explosiveness': (55, 80), 'leg_drive': (55, 80),
+        'pace': (50, 75), 'acceleration': (52, 78), 'agility': (45, 70),
+        'strength': (60, 85),
+        'aggression': (65, 92), 'composure': (45, 70), 'concentration': (55, 80),
+        'awareness': (55, 80), 'running_lines': (40, 65), 'discipline': (40, 72),
+        'tenacity': (70, 95), 'scanning': (50, 75), 'positioning': (55, 80),
+        'long_passing': (15, 40), 'handling': (40, 65), 'high_ball': (25, 50),
+        'offload': (35, 60), 'tackling': (70, 95), 'rucking': (65, 90),
+        'mauling': (45, 70), 'jackling': (55, 85), 'grubber': (5, 20),
+        'chipping': (5, 18), 'box_kicking': (5, 12), 'stepping': (25, 50),
+        'short_passing': (35, 60),
+        'goal_kicking': (5, 15), 'scrum_drive': (45, 70), 'scrum_tech': (40, 65),
+        'touch_finder': (10, 30), 'jumping': (45, 72), 'lifting': (40, 65),
+    },
+    'number_eight': {
+        'stopping_power': (60, 85), 'explosiveness': (50, 75), 'leg_drive': (55, 82),
+        'pace': (45, 70), 'acceleration': (48, 72), 'agility': (40, 65),
+        'strength': (65, 90),
+        'aggression': (60, 85), 'composure': (45, 70), 'concentration': (50, 75),
+        'awareness': (50, 78), 'running_lines': (45, 70), 'discipline': (40, 70),
+        'tenacity': (60, 88), 'scanning': (45, 70), 'positioning': (50, 75),
+        'long_passing': (20, 45), 'handling': (45, 70), 'high_ball': (25, 50),
+        'offload': (40, 68), 'tackling': (60, 85), 'rucking': (58, 82),
+        'mauling': (55, 80), 'jackling': (35, 60), 'grubber': (8, 25),
+        'chipping': (8, 22), 'box_kicking': (5, 12), 'stepping': (30, 55),
+        'short_passing': (35, 62),
+        'goal_kicking': (5, 18), 'scrum_drive': (55, 80), 'scrum_tech': (45, 72),
+        'touch_finder': (12, 30), 'jumping': (40, 65), 'lifting': (35, 60),
+    },
+    'scrum_half': {
+        'stopping_power': (20, 45), 'explosiveness': (60, 85), 'leg_drive': (30, 55),
+        'pace': (60, 85), 'acceleration': (65, 90), 'agility': (62, 88),
+        'strength': (28, 52),
+        'aggression': (45, 72), 'composure': (55, 82), 'concentration': (55, 80),
+        'awareness': (60, 85), 'running_lines': (45, 72), 'discipline': (50, 80),
+        'tenacity': (55, 80), 'scanning': (60, 85), 'positioning': (55, 80),
+        'long_passing': (60, 88), 'handling': (60, 85), 'high_ball': (25, 50),
+        'offload': (30, 55), 'tackling': (40, 65), 'rucking': (35, 60),
+        'mauling': (10, 25), 'jackling': (20, 45), 'grubber': (35, 62),
+        'chipping': (30, 58), 'box_kicking': (55, 85), 'stepping': (50, 78),
+        'short_passing': (65, 92),
+        'goal_kicking': (15, 45), 'scrum_drive': (10, 25), 'scrum_tech': (10, 25),
+        'touch_finder': (35, 62), 'jumping': (15, 35), 'lifting': (10, 25),
+    },
+    'fly_half': {
+        'stopping_power': (20, 45), 'explosiveness': (50, 75), 'leg_drive': (25, 50),
+        'pace': (50, 75), 'acceleration': (52, 78), 'agility': (55, 82),
+        'strength': (30, 55),
+        'aggression': (35, 60), 'composure': (60, 88), 'concentration': (60, 85),
+        'awareness': (65, 92), 'running_lines': (50, 78), 'discipline': (55, 85),
+        'tenacity': (40, 65), 'scanning': (65, 92), 'positioning': (60, 85),
+        'long_passing': (60, 90), 'handling': (60, 85), 'high_ball': (40, 68),
+        'offload': (30, 55), 'tackling': (35, 60), 'rucking': (20, 42),
+        'mauling': (10, 22), 'jackling': (10, 28), 'grubber': (50, 80),
+        'chipping': (50, 78), 'box_kicking': (25, 50), 'stepping': (45, 75),
+        'short_passing': (62, 90),
+        'goal_kicking': (55, 92), 'scrum_drive': (8, 20), 'scrum_tech': (8, 20),
+        'touch_finder': (55, 85), 'jumping': (20, 42), 'lifting': (10, 25),
+    },
+    'centre': {
+        'stopping_power': (45, 72), 'explosiveness': (52, 78), 'leg_drive': (40, 65),
+        'pace': (55, 80), 'acceleration': (55, 82), 'agility': (55, 80),
+        'strength': (50, 75),
+        'aggression': (45, 72), 'composure': (50, 78), 'concentration': (50, 75),
+        'awareness': (55, 80), 'running_lines': (55, 82), 'discipline': (48, 78),
+        'tenacity': (50, 75), 'scanning': (50, 75), 'positioning': (50, 78),
+        'long_passing': (40, 68), 'handling': (50, 78), 'high_ball': (35, 62),
+        'offload': (40, 68), 'tackling': (55, 80), 'rucking': (30, 55),
+        'mauling': (15, 35), 'jackling': (15, 38), 'grubber': (25, 52),
+        'chipping': (25, 52), 'box_kicking': (10, 25), 'stepping': (50, 78),
+        'short_passing': (50, 78),
+        'goal_kicking': (15, 45), 'scrum_drive': (10, 25), 'scrum_tech': (10, 22),
+        'touch_finder': (25, 55), 'jumping': (25, 48), 'lifting': (15, 35),
+    },
+    'wing': {
+        'stopping_power': (25, 50), 'explosiveness': (65, 92), 'leg_drive': (25, 50),
+        'pace': (72, 99), 'acceleration': (70, 98), 'agility': (65, 92),
+        'strength': (35, 62),
+        'aggression': (35, 60), 'composure': (45, 72), 'concentration': (45, 70),
+        'awareness': (45, 72), 'running_lines': (50, 78), 'discipline': (48, 78),
+        'tenacity': (40, 68), 'scanning': (40, 65), 'positioning': (50, 78),
+        'long_passing': (20, 45), 'handling': (52, 80), 'high_ball': (45, 75),
+        'offload': (35, 62), 'tackling': (35, 62), 'rucking': (15, 35),
+        'mauling': (8, 20), 'jackling': (8, 25), 'grubber': (25, 55),
+        'chipping': (30, 58), 'box_kicking': (5, 15), 'stepping': (60, 90),
+        'short_passing': (30, 58),
+        'goal_kicking': (10, 40), 'scrum_drive': (5, 15), 'scrum_tech': (5, 12),
+        'touch_finder': (20, 50), 'jumping': (35, 62), 'lifting': (10, 25),
+    },
+    'fullback': {
+        'stopping_power': (28, 55), 'explosiveness': (55, 82), 'leg_drive': (28, 52),
+        'pace': (60, 85), 'acceleration': (60, 85), 'agility': (58, 85),
+        'strength': (35, 58),
+        'aggression': (35, 58), 'composure': (55, 82), 'concentration': (55, 80),
+        'awareness': (60, 85), 'running_lines': (52, 80), 'discipline': (52, 82),
+        'tenacity': (42, 68), 'scanning': (58, 85), 'positioning': (60, 85),
+        'long_passing': (35, 62), 'handling': (55, 82), 'high_ball': (60, 88),
+        'offload': (30, 58), 'tackling': (40, 68), 'rucking': (15, 35),
+        'mauling': (8, 20), 'jackling': (8, 22), 'grubber': (35, 65),
+        'chipping': (35, 62), 'box_kicking': (15, 35), 'stepping': (48, 78),
+        'short_passing': (40, 68),
+        'goal_kicking': (35, 72), 'scrum_drive': (5, 15), 'scrum_tech': (5, 12),
+        'touch_finder': (45, 78), 'jumping': (40, 65), 'lifting': (10, 25),
+    },
+}
+
+POSITION_TO_PROFILE = {
+    'loosehead_prop': 'loosehead_prop',
+    'hooker': 'hooker',
+    'tighthead_prop': 'tighthead_prop',
+    'lock_4': 'lock',
+    'lock_5': 'lock',
+    'blindside_flanker': 'flanker',
+    'openside_flanker': 'flanker',
+    'number_eight': 'number_eight',
+    'scrum_half': 'scrum_half',
+    'fly_half': 'fly_half',
+    'inside_centre': 'centre',
+    'outside_centre': 'centre',
+    'left_wing': 'wing',
+    'right_wing': 'wing',
+    'fullback': 'fullback',
 }
 
 # Secondary position mappings
@@ -203,6 +295,35 @@ SECONDARY_POSITIONS = {
     'left_wing': ['right_wing', 'fullback'],
     'right_wing': ['left_wing', 'fullback'],
     'fullback': ['fly_half', 'left_wing', 'right_wing'],
+}
+
+# Real players to inject into specific teams
+REAL_PLAYERS = {
+    "Sale Sharks": [
+        {
+            "name": "Tom Curry", "age": 26, "position": "openside_flanker",
+            "secondary_positions": ["blindside_flanker", "number_eight"],
+            "nationality": "England", "height": 185, "weight": 110,
+            "potential": 90, "form": 72, "morale": 75, "fitness": 95,
+            "wage": 12000, "contract_end": 3,
+            # Physical
+            "stopping_power": 78, "explosiveness": 80, "leg_drive": 76,
+            "pace": 74, "acceleration": 78, "agility": 68, "strength": 82,
+            # Mental
+            "aggression": 85, "composure": 72, "concentration": 78,
+            "awareness": 80, "running_lines": 68, "discipline": 72,
+            "tenacity": 92, "scanning": 78, "positioning": 82,
+            # Technical
+            "long_passing": 42, "handling": 65, "high_ball": 55,
+            "offload": 58, "tackling": 92, "rucking": 88,
+            "mauling": 68, "jackling": 90, "grubber": 18,
+            "chipping": 15, "box_kicking": 10, "stepping": 52,
+            "short_passing": 55,
+            # Set Piece
+            "goal_kicking": 10, "scrum_drive": 62, "scrum_tech": 55,
+            "touch_finder": 22, "jumping": 65, "lifting": 55,
+        },
+    ],
 }
 
 
@@ -308,12 +429,10 @@ def generate_squad(team_reputation, team_name=None):
         for i in range(remaining):
             player = generate_player(position, team_reputation, used_names)
             # First player at each position is generally better (starter)
-            # but only if no real player already fills that starter slot
             if i == 0 and already_filled == 0:
-                for stat in ['speed', 'strength', 'stamina', 'agility', 'passing',
-                             'kicking', 'tackling', 'handling', 'scrummaging',
-                             'lineout', 'game_sense', 'kick_chase']:
-                    player[stat] = min(99, player[stat] + random.randint(3, 8))
+                for stat in ALL_STATS:
+                    if stat in player:
+                        player[stat] = min(99, player[stat] + random.randint(2, 6))
             players.append(player)
 
     return players

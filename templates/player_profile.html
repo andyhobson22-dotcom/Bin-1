@@ -59,67 +59,23 @@
     </div>
 </div>
 
-{# ── Attributes Grid ── #}
+{# ── Attributes — 4 groups in 2x2 grid ── #}
 <div class="grid grid-2">
-    {# Left column: Physical + Set Piece #}
-    <div>
-        <div class="card">
-            <h2>Physical</h2>
-            {% for stat, label in [('speed', 'Speed'), ('strength', 'Strength'), ('stamina', 'Stamina'), ('agility', 'Agility')] %}
-            <div class="stat-bar">
-                <span class="stat-bar-label">{{ label }}</span>
-                <div class="stat-bar-track">
-                    <div class="stat-bar-fill {% if player[stat] >= 80 %}stat-high{% elif player[stat] >= 60 %}stat-good{% elif player[stat] >= 40 %}stat-med{% else %}stat-low{% endif %}"
-                         style="width: {{ player[stat] }}%"></div>
-                </div>
-                <span class="stat-bar-value">{{ player[stat] }}</span>
+    {% for group_name, stats in stat_groups.items() %}
+    <div class="card stat-card">
+        <h2>{{ group_name }}</h2>
+        {% for stat_key, stat_label in stats %}
+        <div class="stat-row">
+            <span class="stat-row-label">{{ stat_label }}</span>
+            <div class="stat-row-track">
+                <div class="stat-row-fill {% if player[stat_key] >= 80 %}stat-high{% elif player[stat_key] >= 60 %}stat-good{% elif player[stat_key] >= 40 %}stat-med{% else %}stat-low{% endif %}"
+                     style="width: {{ player[stat_key] }}%"></div>
             </div>
-            {% endfor %}
+            <span class="stat-row-value {% if player[stat_key] >= 80 %}text-success{% elif player[stat_key] >= 60 %}text-accent{% elif player[stat_key] < 40 %}text-danger{% endif %}">{{ player[stat_key] }}</span>
         </div>
-        <div class="card">
-            <h2>Set Piece</h2>
-            {% for stat, label in [('scrummaging', 'Scrummaging'), ('lineout', 'Lineout')] %}
-            <div class="stat-bar">
-                <span class="stat-bar-label">{{ label }}</span>
-                <div class="stat-bar-track">
-                    <div class="stat-bar-fill {% if player[stat] >= 80 %}stat-high{% elif player[stat] >= 60 %}stat-good{% elif player[stat] >= 40 %}stat-med{% else %}stat-low{% endif %}"
-                         style="width: {{ player[stat] }}%"></div>
-                </div>
-                <span class="stat-bar-value">{{ player[stat] }}</span>
-            </div>
-            {% endfor %}
-        </div>
+        {% endfor %}
     </div>
-
-    {# Right column: Technical + Mental #}
-    <div>
-        <div class="card">
-            <h2>Technical</h2>
-            {% for stat, label in [('passing', 'Passing'), ('kicking', 'Kicking'), ('tackling', 'Tackling'), ('handling', 'Handling'), ('kick_chase', 'Kick Chase')] %}
-            <div class="stat-bar">
-                <span class="stat-bar-label">{{ label }}</span>
-                <div class="stat-bar-track">
-                    <div class="stat-bar-fill {% if player[stat] >= 80 %}stat-high{% elif player[stat] >= 60 %}stat-good{% elif player[stat] >= 40 %}stat-med{% else %}stat-low{% endif %}"
-                         style="width: {{ player[stat] }}%"></div>
-                </div>
-                <span class="stat-bar-value">{{ player[stat] }}</span>
-            </div>
-            {% endfor %}
-        </div>
-        <div class="card">
-            <h2>Mental</h2>
-            {% for stat, label in [('game_sense', 'Game Sense'), ('leadership', 'Leadership'), ('discipline', 'Discipline')] %}
-            <div class="stat-bar">
-                <span class="stat-bar-label">{{ label }}</span>
-                <div class="stat-bar-track">
-                    <div class="stat-bar-fill {% if player[stat] >= 80 %}stat-high{% elif player[stat] >= 60 %}stat-good{% elif player[stat] >= 40 %}stat-med{% else %}stat-low{% endif %}"
-                         style="width: {{ player[stat] }}%"></div>
-                </div>
-                <span class="stat-bar-value">{{ player[stat] }}</span>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
+    {% endfor %}
 </div>
 
 {# ── Positions & Value Card ── #}
@@ -143,13 +99,13 @@
                     <span class="text-secondary">Transfer Value</span>
                     <span class="player-value-amount">&pound;{{ "{:,}".format(player_value) }}</span>
                 </div>
-                <div class="stat-bar mt-2">
-                    <span class="stat-bar-label">Potential</span>
-                    <div class="stat-bar-track">
-                        <div class="stat-bar-fill {% if player.potential >= 85 %}stat-high{% elif player.potential >= 70 %}stat-good{% elif player.potential >= 55 %}stat-med{% else %}stat-low{% endif %}"
+                <div class="stat-row mt-2">
+                    <span class="stat-row-label">Potential</span>
+                    <div class="stat-row-track">
+                        <div class="stat-row-fill {% if player.potential >= 85 %}stat-high{% elif player.potential >= 70 %}stat-good{% elif player.potential >= 55 %}stat-med{% else %}stat-low{% endif %}"
                              style="width: {{ player.potential }}%"></div>
                     </div>
-                    <span class="stat-bar-value">{{ player.potential }}</span>
+                    <span class="stat-row-value">{{ player.potential }}</span>
                 </div>
             </div>
         </div>

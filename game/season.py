@@ -3,7 +3,7 @@ import random
 from database import get_db
 from models.league import update_standings
 from models.match import save_match
-from models.player import get_team_players
+from models.player import get_team_players, inject_compat_stats
 from models.team import get_team
 from engine.match_engine import simulate_match
 
@@ -126,6 +126,12 @@ def advance_round():
         if not home_players or not away_players:
             continue
 
+        # Inject engine-compatible stat aliases
+        for p in home_players:
+            inject_compat_stats(p)
+        for p in away_players:
+            inject_compat_stats(p)
+
         # Simulate the match
         result = simulate_match(
             home_team, away_team,
@@ -186,6 +192,12 @@ def play_single_match(fixture_id, player_tactics=None):
     if not home_players or not away_players:
         db.close()
         return None
+
+    # Inject engine-compatible stat aliases
+    for p in home_players:
+        inject_compat_stats(p)
+    for p in away_players:
+        inject_compat_stats(p)
 
     # Apply player tactics to the correct side
     home_tactics = None
