@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2400 1600" width="2400" height="1600">
+  <defs>
+    <linearGradient id="roomWall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3A2570"/>
+      <stop offset="100%" stop-color="#2A1855"/>
+    </linearGradient>
+    <linearGradient id="screenGlow" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#2DD4BF" stop-opacity="0.3"/>
+      <stop offset="50%" stop-color="#2DD4BF" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#2DD4BF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="screenContent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#87CEEB" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#90EE90" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#2DD4BF" stop-opacity="0.5"/>
+    </linearGradient>
+    <linearGradient id="floorGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2A1855"/>
+      <stop offset="100%" stop-color="#1E0F40"/>
+    </linearGradient>
+    <filter id="softGlow">
+      <feGaussianBlur stdDeviation="15"/>
+    </filter>
+    <filter id="gentleBlur">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+    <filter id="screenBleed">
+      <feGaussianBlur stdDeviation="25"/>
+    </filter>
+    <radialGradient id="warmLight" cx="50%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#2DD4BF" stop-opacity="0.12"/>
+      <stop offset="40%" stop-color="#2DD4BF" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#1E0F40" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Room background -->
+  <rect width="2400" height="1600" fill="#1E0F40"/>
+  <rect width="2400" height="1100" fill="url(#roomWall)"/>
+
+  <!-- Floor -->
+  <rect x="0" y="1100" width="2400" height="500" fill="url(#floorGrad)"/>
+  <line x1="0" y1="1100" x2="2400" y2="1100" stroke="#4A2FA0" stroke-opacity="0.2" stroke-width="2"/>
+
+  <!-- Screen glow bleeding into room -->
+  <ellipse cx="1200" cy="500" rx="800" ry="500" fill="url(#warmLight)" filter="url(#screenBleed)"/>
+
+  <!-- Large display screen -->
+  <rect x="500" y="150" width="1400" height="750" rx="15" fill="#0A0520" stroke="#4A2FA0" stroke-width="3" stroke-opacity="0.4"/>
+
+  <!-- Screen content - gentle sunlit street scene -->
+  <rect x="510" y="160" width="1380" height="730" rx="12" fill="url(#screenContent)"/>
+
+  <!-- Sky on screen -->
+  <rect x="510" y="160" width="1380" height="350" rx="12" fill="#87CEEB" opacity="0.6"/>
+
+  <!-- Sun on screen -->
+  <circle cx="1500" cy="280" r="60" fill="#FFE4B5" opacity="0.7" filter="url(#gentleBlur)"/>
+
+  <!-- Gentle buildings on screen -->
+  <rect x="550" y="350" width="160" height="250" fill="#A8D5BA" opacity="0.5"/>
+  <rect x="730" y="380" width="120" height="220" fill="#90C4A8" opacity="0.5"/>
+  <rect x="880" y="340" width="180" height="260" fill="#B5DFC9" opacity="0.5"/>
+  <rect x="1100" y="370" width="140" height="230" fill="#98CAAE" opacity="0.5"/>
+  <rect x="1280" y="350" width="170" height="250" fill="#A8D5BA" opacity="0.5"/>
+  <rect x="1490" y="390" width="130" height="210" fill="#8EC4A5" opacity="0.5"/>
+  <rect x="1650" y="360" width="160" height="240" fill="#B0D8C2" opacity="0.5"/>
+
+  <!-- Street on screen -->
+  <rect x="510" y="600" width="1380" height="290" rx="0" fill="#C4B59A" opacity="0.4"/>
+
+  <!-- Trees on screen -->
+  <circle cx="650" cy="450" r="60" fill="#5DAF7B" opacity="0.5" filter="url(#gentleBlur)"/>
+  <circle cx="1000" cy="440" r="55" fill="#6BBF8A" opacity="0.5" filter="url(#gentleBlur)"/>
+  <circle cx="1400" cy="455" r="58" fill="#5DAF7B" opacity="0.5" filter="url(#gentleBlur)"/>
+  <circle cx="1750" cy="445" r="52" fill="#6BBF8A" opacity="0.5" filter="url(#gentleBlur)"/>
+
+  <!-- Teal accent light from screen edges -->
+  <rect x="500" y="150" width="1400" height="6" fill="#2DD4BF" opacity="0.6" filter="url(#gentleBlur)"/>
+  <rect x="500" y="894" width="1400" height="6" fill="#2DD4BF" opacity="0.4" filter="url(#gentleBlur)"/>
+
+  <!-- Screen light spilling onto floor -->
+  <polygon points="500,900 1900,900 2100,1600 300,1600" fill="#2DD4BF" opacity="0.04" filter="url(#screenBleed)"/>
+
+  <!-- Therapist figure (right side) -->
+  <g opacity="0.85">
+    <!-- Chair -->
+    <rect x="1700" y="1050" width="200" height="180" rx="20" fill="#3D2570" opacity="0.6"/>
+    <!-- Body -->
+    <ellipse cx="1800" cy="1050" rx="70" ry="120" fill="#352060"/>
+    <!-- Head -->
+    <circle cx="1800" cy="900" r="45" fill="#352060"/>
+    <!-- Arm holding tablet -->
+    <ellipse cx="1720" cy="1050" rx="50" ry="25" fill="#352060" transform="rotate(-10, 1720, 1050)"/>
+    <!-- Tablet/iPad -->
+    <rect x="1660" y="1010" width="60" height="80" rx="5" fill="#2DD4BF" opacity="0.6"/>
+    <rect x="1665" y="1015" width="50" height="70" rx="3" fill="#1FB8A5" opacity="0.3"/>
+  </g>
+
+  <!-- Client figure (left side, slightly closer to screen) -->
+  <g opacity="0.85">
+    <!-- Chair -->
+    <rect x="700" y="1050" width="200" height="180" rx="20" fill="#3D2570" opacity="0.6"/>
+    <!-- Body -->
+    <ellipse cx="800" cy="1050" rx="70" ry="120" fill="#352060"/>
+    <!-- Head -->
+    <circle cx="800" cy="900" r="45" fill="#352060"/>
+    <!-- Arms relaxed -->
+    <ellipse cx="730" cy="1040" rx="45" ry="22" fill="#352060" transform="rotate(5, 730, 1040)"/>
+    <ellipse cx="870" cy="1040" rx="45" ry="22" fill="#352060" transform="rotate(-5, 870, 1040)"/>
+  </g>
+
+  <!-- Small side table between them -->
+  <rect x="1050" y="1080" width="100" height="80" rx="5" fill="#3A2268"/>
+
+  <!-- Teal accent elements in room -->
+  <!-- Subtle wall strip -->
+  <rect x="0" y="500" width="2400" height="3" fill="#2DD4BF" opacity="0.1"/>
+
+  <!-- Ambient teal particles suggesting digital-physical blend -->
+  <circle cx="400" cy="700" r="4" fill="#2DD4BF" opacity="0.2"/>
+  <circle cx="600" cy="500" r="3" fill="#2DD4BF" opacity="0.15"/>
+  <circle cx="1000" cy="650" r="5" fill="#2DD4BF" opacity="0.12"/>
+  <circle cx="1400" cy="550" r="3" fill="#2DD4BF" opacity="0.18"/>
+  <circle cx="1600" cy="700" r="4" fill="#2DD4BF" opacity="0.14"/>
+  <circle cx="2000" cy="600" r="3" fill="#2DD4BF" opacity="0.16"/>
+  <circle cx="300" cy="900" r="4" fill="#2DD4BF" opacity="0.1"/>
+  <circle cx="2100" cy="850" r="5" fill="#2DD4BF" opacity="0.1"/>
+
+  <!-- Warm overall glow -->
+  <rect width="2400" height="1600" fill="url(#warmLight)"/>
+
+  <!-- Soft vignette -->
+  <radialGradient id="softVignette" cx="50%" cy="50%" r="65%">
+    <stop offset="0%" stop-color="#1E0F40" stop-opacity="0"/>
+    <stop offset="100%" stop-color="#1E0F40" stop-opacity="0.4"/>
+  </radialGradient>
+  <rect width="2400" height="1600" fill="url(#softVignette)"/>
+</svg>
