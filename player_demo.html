@@ -157,14 +157,16 @@
             padding: 10px 20px 20px;
         }
 
+        .pitch-view { display: none; width: 100%; max-width: 340px; }
+        .pitch-view.active { display: block; }
+
         .pitch {
             position: relative;
             width: 100%;
-            max-width: 340px;
+            height: 300px;
             background: linear-gradient(180deg, #132a13 0%, #1a3a1a 100%);
             border: 1px solid #2a4a2a;
             border-radius: 12px;
-            overflow: hidden;
         }
 
         .pitch::before {
@@ -175,28 +177,14 @@
                 transparent, transparent 28px,
                 rgba(255,255,255,0.025) 28px, rgba(255,255,255,0.025) 29px);
             pointer-events: none;
+            border-radius: 12px;
         }
-
-        .pitch::after {
-            content: '';
-            position: absolute;
-            left: 0; right: 0;
-            top: 50%;
-            height: 1px;
-            background: rgba(255,255,255,0.06);
-            pointer-events: none;
-        }
-
-        .pitch-inner { position: relative; }
-        .pitch-forwards .pitch-inner { height: 280px; }
-        .pitch-backs .pitch-inner { height: 280px; }
-
-        .pitch-view { display: none; }
-        .pitch-view.active { display: block; }
 
         .pos-dot {
             position: absolute;
             width: 42px; height: 42px;
+            margin-left: -21px;
+            margin-top: -21px;
             border-radius: 50%;
             display: flex;
             flex-direction: column;
@@ -205,10 +193,9 @@
             cursor: default;
             transition: transform 0.15s, box-shadow 0.15s;
             border: 2px solid transparent;
-            transform: translateX(-50%) translateY(-50%);
         }
 
-        .pos-dot:hover { transform: translateX(-50%) translateY(-50%) scale(1.15); }
+        .pos-dot:hover { transform: scale(1.15); }
 
         .pos-dot .num { font-size: 0.82em; font-weight: 800; line-height: 1; }
         .pos-dot .abbr { font-size: 0.55em; font-weight: 600; opacity: 0.8; margin-top: 1px; }
@@ -218,7 +205,7 @@
         .f-competent { background: rgba(59,130,246,0.2); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 12px rgba(59,130,246,0.12); }
         .f-some { background: rgba(234,179,8,0.18); border-color: var(--yellow); color: var(--yellow); }
         .f-minimal { background: rgba(239,68,68,0.15); border-color: var(--red); color: var(--red); }
-        .f-none { background: rgba(74,85,104,0.12); border-color: rgba(74,85,104,0.25); color: var(--text-3); opacity: 0.35; }
+        .f-none { background: rgba(74,85,104,0.18); border-color: rgba(74,85,104,0.35); color: var(--text-3); opacity: 0.5; }
 
         /* Player info strip at bottom of left panel */
         .player-strip {
@@ -375,35 +362,31 @@
         <div class="pitch-container">
             <!-- FORWARDS — Scrum formation (no 9) -->
             <div class="pitch-view active" id="view-forwards">
-                <div class="pitch pitch-forwards">
-                    <div class="pitch-inner">
-                        <!-- Front row -->
-                        <div class="pos-dot f-none" style="left:30%; top:18%"><span class="num">1</span><span class="abbr">LH</span></div>
-                        <div class="pos-dot f-none" style="left:50%; top:14%"><span class="num">2</span><span class="abbr">HK</span></div>
-                        <div class="pos-dot f-none" style="left:70%; top:18%"><span class="num">3</span><span class="abbr">TH</span></div>
-                        <!-- Locks -->
-                        <div class="pos-dot f-none" style="left:38%; top:40%"><span class="num">4</span><span class="abbr">LK</span></div>
-                        <div class="pos-dot f-none" style="left:62%; top:40%"><span class="num">5</span><span class="abbr">LK</span></div>
-                        <!-- Back row: 6, 8, 7 (8 at base, 7 openside) -->
-                        <div class="pos-dot f-natural" style="left:28%; top:64%"><span class="num">6</span><span class="abbr">BF</span></div>
-                        <div class="pos-dot f-natural" style="left:50%; top:60%"><span class="num">8</span><span class="abbr">N8</span></div>
-                        <div class="pos-dot f-natural" style="left:72%; top:64%"><span class="num">7</span><span class="abbr">OF</span></div>
-                    </div>
+                <div class="pitch">
+                    <!-- Front row -->
+                    <div class="pos-dot f-none" style="left:30%; top:18%"><span class="num">1</span><span class="abbr">LH</span></div>
+                    <div class="pos-dot f-none" style="left:50%; top:14%"><span class="num">2</span><span class="abbr">HK</span></div>
+                    <div class="pos-dot f-none" style="left:70%; top:18%"><span class="num">3</span><span class="abbr">TH</span></div>
+                    <!-- Locks -->
+                    <div class="pos-dot f-none" style="left:38%; top:40%"><span class="num">4</span><span class="abbr">LK</span></div>
+                    <div class="pos-dot f-none" style="left:62%; top:40%"><span class="num">5</span><span class="abbr">LK</span></div>
+                    <!-- Back row: 6, 8, 7 (8 at base, 7 openside) -->
+                    <div class="pos-dot f-natural" style="left:28%; top:66%"><span class="num">6</span><span class="abbr">BF</span></div>
+                    <div class="pos-dot f-natural" style="left:50%; top:62%"><span class="num">8</span><span class="abbr">N8</span></div>
+                    <div class="pos-dot f-natural" style="left:72%; top:66%"><span class="num">7</span><span class="abbr">OF</span></div>
                 </div>
             </div>
 
             <!-- BACKS — Backline spread -->
             <div class="pitch-view" id="view-backs">
-                <div class="pitch pitch-backs">
-                    <div class="pitch-inner">
-                        <div class="pos-dot f-none" style="left:10%; top:50%"><span class="num">9</span><span class="abbr">SH</span></div>
-                        <div class="pos-dot f-none" style="left:25%; top:35%"><span class="num">10</span><span class="abbr">FH</span></div>
-                        <div class="pos-dot f-some" style="left:40%; top:24%"><span class="num">12</span><span class="abbr">IC</span></div>
-                        <div class="pos-dot f-none" style="left:55%; top:16%"><span class="num">13</span><span class="abbr">OC</span></div>
-                        <div class="pos-dot f-minimal" style="left:25%; top:78%"><span class="num">11</span><span class="abbr">LW</span></div>
-                        <div class="pos-dot f-minimal" style="left:72%; top:10%"><span class="num">14</span><span class="abbr">RW</span></div>
-                        <div class="pos-dot f-none" style="left:85%; top:50%"><span class="num">15</span><span class="abbr">FB</span></div>
-                    </div>
+                <div class="pitch">
+                    <div class="pos-dot f-none" style="left:10%; top:50%"><span class="num">9</span><span class="abbr">SH</span></div>
+                    <div class="pos-dot f-none" style="left:25%; top:35%"><span class="num">10</span><span class="abbr">FH</span></div>
+                    <div class="pos-dot f-some" style="left:40%; top:24%"><span class="num">12</span><span class="abbr">IC</span></div>
+                    <div class="pos-dot f-none" style="left:55%; top:16%"><span class="num">13</span><span class="abbr">OC</span></div>
+                    <div class="pos-dot f-minimal" style="left:25%; top:78%"><span class="num">11</span><span class="abbr">LW</span></div>
+                    <div class="pos-dot f-minimal" style="left:72%; top:10%"><span class="num">14</span><span class="abbr">RW</span></div>
+                    <div class="pos-dot f-none" style="left:85%; top:50%"><span class="num">15</span><span class="abbr">FB</span></div>
                 </div>
             </div>
         </div>
