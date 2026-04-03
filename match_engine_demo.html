@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rugby Match Engine</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+:root {
+    --bg: #0a0e13; --bg2: #12171e; --bg3: #1a2230; --bg4: #222d3a;
+    --text1: #f0f4f8; --text2: #94a3b8; --text3: #4a5568;
+    --accent: #3b82f6; --green: #22c55e; --yellow: #eab308;
+    --red: #ef4444; --orange: #f97316; --border: #1e293b;
+    --home: #3b82f6; --away: #ef4444;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text1); height:100vh; overflow:hidden; }
+
+/* ── Scoreboard ── */
+.scoreboard {
+    background:var(--bg2); border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; gap:20px;
+    padding:12px 24px; position:relative; z-index:10;
+}
+.sb-team { font-weight:700; font-size:1em; min-width:180px; }
+.sb-team.home { text-align:right; color:var(--home); }
+.sb-team.away { text-align:left; color:var(--away); }
+.sb-score { font-size:2em; font-weight:800; letter-spacing:2px; min-width:80px; text-align:center; }
+.sb-clock { position:absolute; right:24px; font-size:0.85em; color:var(--text2); font-weight:600; }
+.sb-clock .min { color:var(--text1); font-size:1.1em; }
+.sb-status { position:absolute; left:24px; font-size:0.75em; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:1px; }
+
+/* ── Main Layout ── */
+.main { display:grid; grid-template-columns:1fr 280px; height:calc(100vh - 53px); }
+
+/* ── Commentary Panel ── */
+.commentary-panel { overflow-y:auto; padding:16px 20px; display:flex; flex-direction:column; gap:4px; }
+.comm-line { padding:6px 10px; border-radius:6px; font-size:0.8em; line-height:1.5; border-left:3px solid transparent; animation:fadeIn 0.3s; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+.comm-line .min { color:var(--accent); font-weight:700; margin-right:6px; }
+.comm-line.event-try { border-left-color:var(--green); background:rgba(34,197,94,0.08); }
+.comm-line.event-conversion { border-left-color:var(--green); background:rgba(34,197,94,0.05); }
+.comm-line.event-penalty_goal { border-left-color:var(--yellow); background:rgba(234,179,8,0.06); }
+.comm-line.event-yellow_card { border-left-color:var(--yellow); background:rgba(234,179,8,0.08); }
+.comm-line.event-red_card { border-left-color:var(--red); background:rgba(239,68,68,0.08); }
+.comm-line.event-turnover { border-left-color:var(--orange); background:rgba(249,115,22,0.06); }
+.comm-line.event-momentum { border-left-color:var(--accent); background:rgba(59,130,246,0.06); font-style:italic; }
+.comm-line.event-half { background:var(--bg3); text-align:center; font-weight:700; border-left-color:var(--text3); }
+.comm-line.event-kickoff { color:var(--text2); }
+
+/* ── Pitch Animation ── */
+.pitch-anim { display:none; margin:8px 0; border-radius:8px; overflow:hidden; background:#132a13; border:1px solid #2a4a2a; }
+.pitch-anim.active { display:block; animation:fadeIn 0.3s; }
+.pitch-anim svg { display:block; width:100%; height:140px; }
+
+/* ── Sidebar ── */
+.sidebar { background:var(--bg2); border-left:1px solid var(--border); padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:14px; }
+.side-section h3 { font-size:0.68em; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--text3); margin-bottom:8px; }
+.stat-row-s { display:flex; justify-content:space-between; align-items:center; padding:3px 0; font-size:0.78em; }
+.stat-row-s .label { color:var(--text2); }
+.stat-row-s .val { font-weight:700; }
+.poss-bar { height:6px; background:var(--away); border-radius:3px; overflow:hidden; margin-top:4px; }
+.poss-bar-fill { height:100%; background:var(--home); border-radius:3px; transition:width 0.5s; }
+.momentum-bar { display:flex; height:8px; border-radius:4px; overflow:hidden; background:var(--bg3); margin-top:4px; }
+.momentum-fill { height:100%; transition:width 0.5s; }
+.momentum-fill.home { background:var(--home); }
+.momentum-fill.away { background:var(--away); }
+.ruck-speed { padding:4px 10px; border-radius:6px; font-size:0.72em; font-weight:700; display:inline-block; }
+.ruck-slow { background:rgba(239,68,68,0.15); color:var(--red); }
+.ruck-ok { background:rgba(234,179,8,0.15); color:var(--yellow); }
+.ruck-quick { background:rgba(59,130,246,0.15); color:var(--accent); }
+.ruck-lightning { background:rgba(34,197,94,0.15); color:var(--green); }
+
+/* ── Subs list ── */
+.sub-list { display:flex; flex-direction:column; gap:3px; }
+.sub-player { font-size:0.72em; padding:4px 8px; border-radius:4px; background:var(--bg3); cursor:pointer; display:flex; justify-content:space-between; }
+.sub-player:hover { background:var(--bg4); }
+.sub-player .pos { color:var(--text3); font-weight:600; }
+
+/* ── Tactical Pause Modal ── */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100; align-items:center; justify-content:center; }
+.modal-overlay.active { display:flex; }
+.modal { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:28px; max-width:600px; width:90%; max-height:85vh; overflow-y:auto; }
+.modal h2 { font-size:1.1em; margin-bottom:16px; }
+.modal-score { text-align:center; font-size:1.8em; font-weight:800; margin-bottom:16px; }
+.modal-stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:20px; text-align:center; }
+.modal-stat { background:var(--bg3); padding:8px; border-radius:6px; }
+.modal-stat .ms-label { font-size:0.65em; color:var(--text3); text-transform:uppercase; }
+.modal-stat .ms-val { font-size:0.95em; font-weight:700; }
+.tactic-group { margin-bottom:14px; }
+.tactic-group label { font-size:0.72em; color:var(--text2); font-weight:600; display:block; margin-bottom:4px; }
+.tactic-group select { width:100%; background:var(--bg3); color:var(--text1); border:1px solid var(--border); padding:6px 10px; border-radius:6px; font-family:inherit; font-size:0.82em; }
+.btn-resume { width:100%; padding:12px; background:var(--green); color:#fff; border:none; border-radius:8px; font-family:inherit; font-size:0.95em; font-weight:700; cursor:pointer; margin-top:12px; }
+.btn-resume:hover { background:#1aa34a; }
+
+/* ── Start Screen ── */
+.start-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; gap:16px; }
+.start-screen h1 { font-size:1.8em; font-weight:800; }
+.start-screen p { color:var(--text2); font-size:0.9em; }
+.btn-start { padding:14px 40px; background:var(--accent); color:#fff; border:none; border-radius:8px; font-family:inherit; font-size:1em; font-weight:700; cursor:pointer; }
+.btn-start:hover { background:#2563eb; }
+#game-ui { display:none; }
+</style>
+</head>
+<body>
+
+<!-- Start Screen -->
+<div class="start-screen" id="start-screen">
+    <h1>Rugby Match Engine</h1>
+    <p>Sale Sharks vs Leicester Tigers</p>
+    <button class="btn-start" onclick="startMatch()">Kick Off</button>
+</div>
+
+<!-- Game UI -->
+<div id="game-ui">
+    <div class="scoreboard">
+        <span class="sb-status" id="sb-status">1ST HALF</span>
+        <span class="sb-team home" id="sb-home">Sale Sharks</span>
+        <span class="sb-score" id="sb-score">0 - 0</span>
+        <span class="sb-team away" id="sb-away">Leicester Tigers</span>
+        <span class="sb-clock"><span class="min" id="sb-clock">0'</span></span>
+    </div>
+    <div class="main">
+        <div class="commentary-panel" id="commentary"></div>
+        <div class="sidebar">
+            <div class="side-section">
+                <h3>Match Stats</h3>
+                <div class="stat-row-s"><span class="label">Possession</span><span class="val" id="stat-poss">50% - 50%</span></div>
+                <div class="poss-bar"><div class="poss-bar-fill" id="poss-bar" style="width:50%"></div></div>
+                <div class="stat-row-s" style="margin-top:8px"><span class="label">Territory</span><span class="val" id="stat-terr">50% - 50%</span></div>
+                <div class="poss-bar"><div class="poss-bar-fill" id="terr-bar" style="width:50%"></div></div>
+                <div class="stat-row-s" style="margin-top:8px"><span class="label">Phases</span><span class="val" id="stat-phases">0</span></div>
+                <div class="stat-row-s"><span class="label">Ruck Speed</span><span id="ruck-display"><span class="ruck-speed ruck-ok">OK</span></span></div>
+            </div>
+            <div class="side-section">
+                <h3>Momentum</h3>
+                <div class="momentum-bar"><div class="momentum-fill home" id="mom-home" style="width:50%"></div><div class="momentum-fill away" id="mom-away" style="width:50%"></div></div>
+                <div class="stat-row-s" style="margin-top:4px"><span class="label" id="mom-text" style="font-size:0.7em;font-style:italic">Even</span></div>
+            </div>
+            <div class="side-section">
+                <h3>Home Bench</h3>
+                <div class="sub-list" id="home-bench"></div>
+            </div>
+            <div class="side-section">
+                <h3>Away Bench</h3>
+                <div class="sub-list" id="away-bench"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tactical Pause Modal -->
+<div class="modal-overlay" id="modal">
+    <div class="modal">
+        <h2 id="modal-title">Tactical Break</h2>
+        <div class="modal-score" id="modal-score">0 - 0</div>
+        <div class="modal-stats">
+            <div class="modal-stat"><div class="ms-label">Possession</div><div class="ms-val" id="modal-poss">50-50</div></div>
+            <div class="modal-stat"><div class="ms-label">Territory</div><div class="ms-val" id="modal-terr">50-50</div></div>
+            <div class="modal-stat"><div class="ms-label">Phases</div><div class="ms-val" id="modal-phases">0</div></div>
+        </div>
+        <h3 style="font-size:0.8em;color:var(--text2);margin-bottom:10px">HOME TACTICS</h3>
+        <div class="tactic-group"><label>Defensive Width</label><select id="t-def-width"><option value="narrow">Narrow</option><option value="balanced" selected>Balanced</option><option value="wide">Wide</option></select></div>
+        <div class="tactic-group"><label>Attacking Width</label><select id="t-atk-width"><option value="tight">Tight</option><option value="balanced" selected>Balanced</option><option value="wide">Wide</option></select></div>
+        <div class="tactic-group"><label>Breakdown Commitment</label><select id="t-breakdown"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select></div>
+        <div class="tactic-group"><label>Kick Frequency</label><select id="t-kick"><option value="rarely">Rarely</option><option value="sometimes" selected>Sometimes</option><option value="often">Often</option></select></div>
+        <div class="tactic-group"><label>Set Piece Focus</label><select id="t-setpiece"><option value="attack">Attack</option><option value="neutral" selected>Neutral</option><option value="defence">Defence</option></select></div>
+        <button class="btn-resume" onclick="resumeMatch()">Resume Match</button>
+    </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   SQUAD DATA
+   ═══════════════════════════════════════════════════════════════════ */
+
+function makePlayer(num, name, pos, stats) {
+    return { num, name, pos, ...stats, fitness: 100, onField: num <= 15, yellowCard: false, redCard: false };
+}
+
+// Helper: generate stats object from positional template + overrides
+function pStats(base, over) { return Object.assign({}, base, over); }
+
+const FWD_BASE = {stopping_power:65,leg_drive:65,acceleration:40,strength:72,explosiveness:45,pace:38,agility:35,aggression:68,concentration:55,running_lines:30,tenacity:65,positioning:50,composure:50,awareness:45,discipline:55,scanning:40,long_passing:25,high_ball:25,tackling:65,mauling:65,grubber:10,box_kicking:8,short_passing:35,handling:40,offload:35,rucking:65,jackling:30,chipping:8,stepping:20,goal_kicking:8,scrum_tech:60,jumping:40,scrum_drive:65,touch_finder:15,lifting:55};
+const LOCK_BASE = {stopping_power:60,leg_drive:60,acceleration:38,strength:70,explosiveness:42,pace:36,agility:32,aggression:65,concentration:58,running_lines:28,tenacity:65,positioning:52,composure:52,awareness:48,discipline:58,scanning:42,long_passing:22,high_ball:45,tackling:62,mauling:62,grubber:8,box_kicking:6,short_passing:32,handling:38,offload:32,rucking:62,jackling:28,chipping:6,stepping:18,goal_kicking:6,scrum_tech:55,jumping:78,scrum_drive:58,touch_finder:12,lifting:70};
+const FLANK_BASE = {stopping_power:62,leg_drive:62,acceleration:65,strength:68,explosiveness:68,pace:65,agility:58,aggression:75,concentration:62,running_lines:48,tenacity:78,positioning:62,composure:58,awareness:65,discipline:55,scanning:60,long_passing:30,high_ball:35,tackling:78,mauling:55,grubber:12,box_kicking:8,short_passing:42,handling:52,offload:45,rucking:75,jackling:65,chipping:10,stepping:38,goal_kicking:8,scrum_tech:48,jumping:55,scrum_drive:52,touch_finder:18,lifting:45};
+const N8_BASE = {stopping_power:68,leg_drive:65,acceleration:58,strength:72,explosiveness:62,pace:55,agility:50,aggression:70,concentration:58,running_lines:52,tenacity:72,positioning:55,composure:55,awareness:58,discipline:55,scanning:52,long_passing:32,high_ball:35,tackling:68,mauling:62,grubber:12,box_kicking:8,short_passing:42,handling:55,offload:50,rucking:70,jackling:42,chipping:10,stepping:35,goal_kicking:8,scrum_tech:50,jumping:48,scrum_drive:58,touch_finder:18,lifting:42};
+const SH_BASE = {stopping_power:25,leg_drive:35,acceleration:78,strength:38,explosiveness:75,pace:72,agility:78,aggression:55,concentration:68,running_lines:55,tenacity:65,positioning:62,composure:68,awareness:72,discipline:65,scanning:72,long_passing:75,high_ball:30,tackling:48,mauling:12,grubber:52,box_kicking:72,short_passing:82,handling:72,offload:35,rucking:40,jackling:25,chipping:45,stepping:62,goal_kicking:25,scrum_tech:12,jumping:22,scrum_drive:12,touch_finder:48,lifting:12};
+const FH_BASE = {stopping_power:28,leg_drive:30,acceleration:62,strength:38,explosiveness:58,pace:60,agility:68,aggression:38,concentration:72,running_lines:62,tenacity:45,positioning:68,composure:78,awareness:80,discipline:72,scanning:78,long_passing:80,high_ball:55,tackling:42,mauling:10,grubber:68,box_kicking:35,short_passing:82,handling:72,offload:38,rucking:22,jackling:12,chipping:65,stepping:58,goal_kicking:78,scrum_tech:8,jumping:25,scrum_drive:8,touch_finder:75,lifting:10};
+const CTR_BASE = {stopping_power:55,leg_drive:48,acceleration:68,strength:62,explosiveness:65,pace:68,agility:68,aggression:52,concentration:60,running_lines:65,tenacity:58,positioning:58,composure:62,awareness:62,discipline:58,scanning:55,long_passing:52,high_ball:45,tackling:65,mauling:18,grubber:35,box_kicking:12,short_passing:65,handling:62,offload:52,rucking:35,jackling:20,chipping:38,stepping:65,goal_kicking:22,scrum_tech:10,jumping:32,scrum_drive:10,touch_finder:35,lifting:15};
+const WING_BASE = {stopping_power:32,leg_drive:30,acceleration:82,strength:45,explosiveness:80,pace:85,agility:80,aggression:42,concentration:55,running_lines:62,tenacity:48,positioning:58,composure:58,awareness:55,discipline:58,scanning:48,long_passing:28,high_ball:58,tackling:42,mauling:10,grubber:35,box_kicking:8,short_passing:38,handling:65,offload:42,rucking:18,jackling:10,chipping:42,stepping:78,goal_kicking:15,scrum_tech:5,jumping:45,scrum_drive:5,touch_finder:30,lifting:8};
+const FB_BASE = {stopping_power:35,leg_drive:32,acceleration:72,strength:42,explosiveness:70,pace:75,agility:75,aggression:38,concentration:65,running_lines:62,tenacity:50,positioning:72,composure:72,awareness:75,discipline:68,scanning:72,long_passing:48,high_ball:78,tackling:52,mauling:10,grubber:55,box_kicking:22,short_passing:55,handling:72,offload:38,rucking:20,jackling:12,chipping:52,stepping:62,goal_kicking:55,scrum_tech:5,jumping:48,scrum_drive:5,touch_finder:65,lifting:10};
+
+const SALE_SHARKS = {
+    name: "Sale Sharks", color: "#003B5C", abbr: "SAL",
+    tactics: { defWidth:"balanced", atkWidth:"balanced", breakdown:"medium", kickFreq:"sometimes", setPiece:"neutral" },
+    squad: [
+        makePlayer(1,"Bevan Rodd","LH",pStats(FWD_BASE,{scrum_drive:78,scrum_tech:72,strength:80,leg_drive:75})),
+        makePlayer(2,"Luke Cowan-Dickie","HK",pStats(FWD_BASE,{tackling:72,scanning:62,awareness:60,jumping:58,scrum_drive:68,handling:52})),
+        makePlayer(3,"Nick Schonert","TH",pStats(FWD_BASE,{scrum_drive:82,scrum_tech:78,strength:85,leg_drive:80,stopping_power:75})),
+        makePlayer(4,"Jonny Hill","LK",pStats(LOCK_BASE,{jumping:82,lifting:75,tackling:68,mauling:70,lineout:80})),
+        makePlayer(5,"JP du Preez","LK",pStats(LOCK_BASE,{jumping:78,strength:78,mauling:72,rucking:68,tackling:65,offload:45})),
+        makePlayer(6,"Ben Curry","BF",pStats(FLANK_BASE,{tackling:82,rucking:78,tenacity:82,awareness:68,strength:72})),
+        makePlayer(7,"Tom Curry","OF",pStats(FLANK_BASE,{tackling:92,jackling:90,tenacity:92,explosiveness:80,pace:74,awareness:80,aggression:85,rucking:88,positioning:82,scanning:78,strength:82,stopping_power:78,acceleration:78,composure:72,concentration:78,discipline:72,running_lines:68,handling:65,offload:58,stepping:52,high_ball:55,mauling:68})),
+        makePlayer(8,"Dan du Preez","N8",pStats(N8_BASE,{strength:78,tackling:72,handling:60,offload:58,rucking:72,mauling:68,pace:58})),
+        makePlayer(9,"Raffi Quirke","SH",pStats(SH_BASE,{pace:78,acceleration:82,stepping:68,box_kicking:68,short_passing:78,scanning:70,awareness:68})),
+        makePlayer(10,"George Ford","FH",pStats(FH_BASE,{goal_kicking:88,touch_finder:85,long_passing:88,short_passing:88,scanning:85,awareness:88,composure:85,grubber:78,chipping:75,stepping:62,discipline:78})),
+        makePlayer(11,"Tom Roebuck","LW",pStats(WING_BASE,{pace:88,acceleration:85,stepping:75,high_ball:62,handling:68,tackling:48})),
+        makePlayer(12,"Sam James","IC",pStats(CTR_BASE,{short_passing:72,handling:68,tackling:70,awareness:68,composure:65,stepping:62})),
+        makePlayer(13,"Rob du Preez","OC",pStats(CTR_BASE,{goal_kicking:72,long_passing:62,stepping:68,pace:72,handling:65})),
+        makePlayer(14,"Arron Reed","RW",pStats(WING_BASE,{pace:92,acceleration:90,agility:85,stepping:82,explosiveness:88,handling:62})),
+        makePlayer(15,"Joe Carpenter","FB",pStats(FB_BASE,{high_ball:75,pace:78,acceleration:75,handling:72,positioning:75,awareness:72,touch_finder:68,goal_kicking:58})),
+        // Bench 16-23
+        makePlayer(16,"Ethan Mayfield","HK",pStats(FWD_BASE,{tackling:65,scanning:55,scrum_drive:62,handling:48})),
+        makePlayer(17,"Simon McIntyre","LH",pStats(FWD_BASE,{scrum_drive:72,strength:75,leg_drive:70})),
+        makePlayer(18,"Asher Mayfield","TH",pStats(FWD_BASE,{scrum_drive:75,scrum_tech:70,strength:78})),
+        makePlayer(19,"Josh Beaumont","LK",pStats(LOCK_BASE,{jumping:72,tackling:62,handling:42,mauling:65})),
+        makePlayer(20,"Tom Curry B","BF",pStats(FLANK_BASE,{tackling:68,rucking:65,tenacity:70})),
+        makePlayer(21,"Gus Mayfield","SH",pStats(SH_BASE,{short_passing:72,box_kicking:65,pace:68})),
+        makePlayer(22,"Luke James","FH",pStats(FH_BASE,{goal_kicking:65,long_passing:68,composure:62})),
+        makePlayer(23,"Tom Curtis","OC",pStats(CTR_BASE,{pace:65,stepping:60,tackling:62})),
+    ]
+};
+
+const LEICESTER_TIGERS = {
+    name: "Leicester Tigers", color: "#C8102E", abbr: "LEI",
+    tactics: { defWidth:"balanced", atkWidth:"balanced", breakdown:"medium", kickFreq:"sometimes", setPiece:"neutral" },
+    squad: [
+        makePlayer(1,"Ellis Genge","LH",pStats(FWD_BASE,{scrum_drive:82,strength:88,leg_drive:80,stopping_power:80,aggression:82,pace:42})),
+        makePlayer(2,"Julian Montoya","HK",pStats(FWD_BASE,{tackling:75,scanning:65,awareness:62,jumping:55,handling:55,scrum_drive:72,aggression:72})),
+        makePlayer(3,"Dan Cole","TH",pStats(FWD_BASE,{scrum_drive:88,scrum_tech:90,strength:82,leg_drive:78,discipline:72,pace:28})),
+        makePlayer(4,"Ollie Chessum","LK",pStats(LOCK_BASE,{jumping:80,pace:48,handling:48,offload:42,acceleration:45,rucking:68,tackling:65})),
+        makePlayer(5,"Cameron Henderson","LK",pStats(LOCK_BASE,{jumping:78,strength:75,mauling:68,tackling:68,lifting:72})),
+        makePlayer(6,"Hanro Liebenberg","BF",pStats(FLANK_BASE,{tackling:78,strength:75,mauling:68,rucking:75,tenacity:75,stopping_power:70})),
+        makePlayer(7,"Tommy Reffell","OF",pStats(FLANK_BASE,{tackling:85,jackling:82,tenacity:85,rucking:82,awareness:72,pace:68,scanning:72})),
+        makePlayer(8,"Jasper Wiese","N8",pStats(N8_BASE,{strength:85,stopping_power:82,explosiveness:75,pace:62,tackling:72,offload:55,aggression:78,leg_drive:78,mauling:72})),
+        makePlayer(9,"Jack van Poortvliet","SH",pStats(SH_BASE,{short_passing:80,pace:75,box_kicking:70,acceleration:78,scanning:68,stepping:60})),
+        makePlayer(10,"Fin Smith","FH",pStats(FH_BASE,{goal_kicking:82,long_passing:78,short_passing:80,scanning:78,awareness:82,composure:78,grubber:72,touch_finder:78,stepping:60})),
+        makePlayer(11,"Ollie Hassell-Collins","LW",pStats(WING_BASE,{pace:90,acceleration:88,stepping:80,explosiveness:85,handling:62,high_ball:55})),
+        makePlayer(12,"Dan Kelly","IC",pStats(CTR_BASE,{tackling:72,awareness:70,short_passing:68,running_lines:68,composure:65,stepping:65})),
+        makePlayer(13,"Solomone Kata","OC",pStats(CTR_BASE,{stopping_power:72,strength:75,pace:70,stepping:62,offload:58,aggression:68})),
+        makePlayer(14,"Chris Ashton","RW",pStats(WING_BASE,{positioning:82,scanning:72,running_lines:78,pace:75,acceleration:72,handling:60})),
+        makePlayer(15,"Freddie Steward","FB",pStats(FB_BASE,{high_ball:88,positioning:82,pace:72,tackling:65,handling:75,awareness:78,composure:75,jumping:62})),
+        makePlayer(16,"Charlie Clare","HK",pStats(FWD_BASE,{tackling:62,scrum_drive:60,handling:45})),
+        makePlayer(17,"Nicky Smith","LH",pStats(FWD_BASE,{scrum_drive:72,strength:74,leg_drive:68})),
+        makePlayer(18,"Joe Heyes","TH",pStats(FWD_BASE,{scrum_drive:78,scrum_tech:75,strength:80})),
+        makePlayer(19,"George Martin","LK",pStats(LOCK_BASE,{jumping:75,tackling:65,rucking:62})),
+        makePlayer(20,"Marco van Staden","OF",pStats(FLANK_BASE,{tackling:75,jackling:72,rucking:72})),
+        makePlayer(21,"Ben Youngs","SH",pStats(SH_BASE,{short_passing:78,box_kicking:72,awareness:75,scanning:72,pace:62})),
+        makePlayer(22,"Handre Pollard","FH",pStats(FH_BASE,{goal_kicking:85,composure:80,touch_finder:80,long_passing:75})),
+        makePlayer(23,"Matt Scott","OC",pStats(CTR_BASE,{pace:68,tackling:65,stepping:62})),
+    ]
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   ENGINE CORE — Pure probability functions, match state
+   ═══════════════════════════════════════════════════════════════════ */
+
+// ── Utility ──
+function avg(players, stat) {
+    if (!players.length) return 50;
+    return players.reduce((s, p) => s + (p[stat] || 50), 0) / players.length;
+}
+function roll(max = 100) { return Math.floor(Math.random() * max) + 1; }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function chance(pct) { return Math.random() * 100 < pct; }
+function fatigueMod(minute) { return minute > 60 ? (minute - 60) * 0.4 : 0; }
+
+function getXV(team) { return team.squad.filter(p => p.onField && !p.redCard); }
+function getForwards(team) { return getXV(team).filter(p => ["LH","HK","TH","LK","BF","OF","N8"].includes(p.pos)); }
+function getBacks(team) { return getXV(team).filter(p => ["SH","FH","IC","OC","LW","RW","FB"].includes(p.pos)); }
+function getByPos(team, pos) { return getXV(team).find(p => p.pos === pos); }
+function getKicker(team) { return getXV(team).reduce((best, p) => (p.goal_kicking > (best?.goal_kicking || 0)) ? p : best, null); }
+
+// ── Tactical Modifiers ──
+function tacticMod(team, key) {
+    const t = team.tactics;
+    const mods = {
+        defWidth: { narrow: { wide_defend: 15 }, balanced: {}, wide: { wide_defend: -10 } },
+        atkWidth: { tight: { wide_attack: -15, forward_carry: 10 }, balanced: {}, wide: { wide_attack: 15, forward_carry: -8 } },
+        breakdown: { low: { ruck_speed: -15, defence_line: 8 }, medium: {}, high: { ruck_speed: 15, defence_line: -10 } },
+        kickFreq: { rarely: { kick_chance: -20 }, sometimes: {}, often: { kick_chance: 20 } },
+        setPiece: { attack: { scrum_agg: 10, lineout_agg: 10 }, neutral: {}, defence: { scrum_agg: -5, lineout_agg: -5 } }
+    };
+    const setting = t[key] || "balanced";
+    return mods[key]?.[setting] || {};
+}
+function getTacticVal(team, stat) {
+    let val = 0;
+    for (const key of ["defWidth","atkWidth","breakdown","kickFreq","setPiece"]) {
+        val += tacticMod(team, key)[stat] || 0;
+    }
+    return val;
+}
+
+// ── Match State ──
+function createMatchState(home, away) {
+    return {
+        home, away, minute: 0, half: 1, possession: "home", zone: 2,
+        homeScore: 0, awayScore: 0, homeTries: 0, awayTries: 0,
+        phases: 0, homePoss: 0, awayPoss: 0, homeTerritory: 0, awayTerritory: 0,
+        momentum: 0, // -100 (away) to +100 (home)
+        momentumStreak: 0,
+        ruckSpeed: "ok", events: [], paused: false,
+        homeSubs: 0, awaySubs: 0,
+        sinBin: [] // {team, player, returnMin}
+    };
+}
+
+function atkTeam(state) { return state.possession === "home" ? state.home : state.away; }
+function defTeam(state) { return state.possession === "home" ? state.away : state.home; }
+function momentumMod(state) {
+    const m = state.momentum;
+    if (state.possession === "home") return clamp(m / 10, -8, 8);
+    return clamp(-m / 10, -8, 8);
+}
+
+function shiftMomentum(state, team, amount) {
+    const dir = team === "home" ? 1 : -1;
+    state.momentum = clamp(state.momentum + dir * amount, -100, 100);
+    state.momentumStreak = (state.momentumStreak > 0 && dir > 0) || (state.momentumStreak < 0 && dir < 0)
+        ? state.momentumStreak + dir : dir;
+}
+
+// ── Ruck Speed Calculator ──
+function calcRuckSpeed(atk, state) {
+    const fwds = getForwards(atk);
+    const ruckAvg = avg(fwds, "rucking");
+    const breakdownMod = getTacticVal(atk, "ruck_speed");
+    const fatigue = fatigueMod(state.minute);
+    const score = ruckAvg + breakdownMod - fatigue + momentumMod(state) * 0.5 + roll(20) - 10;
+    if (score >= 80) { state.ruckSpeed = "lightning"; return "lightning"; }
+    if (score >= 62) { state.ruckSpeed = "quick"; return "quick"; }
+    if (score >= 42) { state.ruckSpeed = "ok"; return "ok"; }
+    state.ruckSpeed = "slow"; return "slow";
+}
+
+// ── Phase Resolvers ──
+
+function resolveScrum(state) {
+    const atk = atkTeam(state), def = defTeam(state);
+    const atkFwds = getForwards(atk), defFwds = getForwards(def);
+    const atkPower = avg(atkFwds,"scrum_drive")*0.4 + avg(atkFwds,"scrum_tech")*0.3 + avg(atkFwds,"strength")*0.2 + avg(atkFwds,"leg_drive")*0.1
+        + getTacticVal(atk,"scrum_agg") + momentumMod(state) - fatigueMod(state.minute)*0.3;
+    const defPower = avg(defFwds,"scrum_drive")*0.4 + avg(defFwds,"scrum_tech")*0.3 + avg(defFwds,"strength")*0.2 + avg(defFwds,"leg_drive")*0.1
+        + getTacticVal(def,"scrum_agg") - fatigueMod(state.minute)*0.3;
+    const diff = atkPower - defPower + roll(30) - 15;
+    if (diff > 20) return "dominant_drive";
+    if (diff > 8) return "clean_ball";
+    if (diff > -5) return chance(40) ? "penalty_won" : "clean_ball";
+    if (diff > -15) return "penalty_conceded";
+    return "turnover";
+}
+
+function resolveLineout(state) {
+    const atk = atkTeam(state), def = defTeam(state);
+    const hooker = getByPos(atk, "HK");
+    const throwAcc = ((hooker?.scanning||50) + (hooker?.awareness||50)) / 2;
+    const atkJumpers = getForwards(atk);
+    const defJumpers = getForwards(def);
+    const jumpContest = avg(atkJumpers,"jumping") + avg(atkJumpers,"lifting")*0.3 - avg(defJumpers,"jumping") - avg(defJumpers,"lifting")*0.2;
+    const accuracy = throwAcc + getTacticVal(atk,"lineout_agg") + roll(20) - 10 - fatigueMod(state.minute)*0.2;
+    if (accuracy < 35) return "overthrow";
+    const contest = jumpContest + roll(30) - 15 + momentumMod(state);
+    if (contest > 15) return chance(40) ? "drive_setup" : "clean_catch";
+    if (contest > -5) return "clean_catch";
+    return "steal";
+}
+
+function resolveRuck(state) {
+    const atk = atkTeam(state), def = defTeam(state);
+    const speed = calcRuckSpeed(atk, state);
+    const defJackling = avg(getForwards(def).slice(0, 3), "jackling");
+    const atkRucking = avg(getForwards(atk).slice(0, 4), "rucking") + avg(getForwards(atk).slice(0, 4), "strength") * 0.3;
+    const jackalChance = clamp(defJackling - atkRucking * 0.6 + roll(30) - 15, 0, 100);
+    const penaltyRisk = (100 - avg(getForwards(def), "discipline")) * 0.3;
+    if (chance(jackalChance * 0.25)) {
+        if (chance(penaltyRisk)) return { type: "penalty", side: "atk" };
+        return { type: "turnover" };
+    }
+    if (chance(penaltyRisk * 0.4)) return { type: "penalty", side: chance(50) ? "atk" : "def" };
+    return { type: "phase", speed };
+}
+
+function resolveMaul(state) {
+    const atk = atkTeam(state);
+    const fwds = getForwards(atk);
+    const power = avg(fwds,"mauling")*0.4 + avg(fwds,"leg_drive")*0.3 + avg(fwds,"strength")*0.3 + momentumMod(state) - fatigueMod(state.minute)*0.3;
+    const r = roll(100);
+    if (power + r > 150 && state.zone >= 4) return "maul_try";
+    if (power + r > 120) return "metres_gained";
+    if (power + r > 90) return chance(40) ? "penalty_won" : "held_up";
+    return chance(30) ? "penalty_conceded" : "held_up";
+}
+
+function resolveKick(state, kickType) {
+    const atk = atkTeam(state);
+    const kicker = kickType === "box" ? getByPos(atk,"SH") : (getByPos(atk,"FH") || getKicker(atk));
+    if (!kicker) return { outcome: "poor", territory: 0 };
+    const statMap = { box: "box_kicking", territorial: "touch_finder", garryowen: "high_ball", grubber: "grubber", chip: "chipping" };
+    const skill = kicker[statMap[kickType] || "touch_finder"] || 50;
+    const success = skill + roll(30) - 15 - fatigueMod(state.minute) * 0.2 + momentumMod(state) * 0.3;
+    if (success > 70) return { outcome: "good", territory: kickType === "territorial" ? 2 : 1, kicker };
+    if (success > 45) return { outcome: "ok", territory: 1, kicker };
+    return { outcome: "poor", territory: 0, kicker };
+}
+
+function resolveBacklineMove(state) {
+    const atk = atkTeam(state), def = defTeam(state);
+    const backs = getBacks(atk);
+    const defBacks = getBacks(def);
+    // Passing chain quality
+    const passChain = avg(backs,"short_passing")*0.4 + avg(backs,"handling")*0.3 + avg(backs,"long_passing")*0.2 + avg(backs,"composure")*0.1;
+    const defLine = avg(defBacks,"tackling")*0.3 + avg(defBacks,"positioning")*0.3 + avg(defBacks,"awareness")*0.2 + getTacticVal(def,"wide_defend");
+    const wideMod = getTacticVal(atk,"wide_attack");
+    const quality = passChain + wideMod + momentumMod(state) - defLine + roll(30) - 15 - fatigueMod(state.minute)*0.2;
+    if (quality > 30) {
+        // 1v1 — attacker vs defender
+        const runner = pick(backs.filter(p => ["LW","RW","OC","FB"].includes(p.pos)));
+        const defender = pick(defBacks);
+        if (!runner || !defender) return "no_gain";
+        const beat = (runner.stepping + runner.agility + runner.acceleration) / 3;
+        const stop = (defender.stopping_power + defender.agility + defender.tackling) / 3;
+        const contest = beat - stop + roll(20) - 10;
+        if (contest > 12) return { type: "line_break", runner, offload: chance(runner.offload * 0.4) };
+        if (contest > 0) return { type: "gain", runner };
+    }
+    if (quality > 10) return { type: "gain" };
+    return { type: "no_gain" };
+}
+
+function resolveConversion(state, team) {
+    const kicker = getKicker(team);
+    if (!kicker) return false;
+    const success = kicker.goal_kicking + roll(20) - 10 - fatigueMod(state.minute) * 0.2;
+    return success > 45;
+}
+
+function resolvePenaltyKick(state, team, zone) {
+    const kicker = getKicker(team);
+    if (!kicker) return false;
+    const distMod = [30, 20, 5, -5, -10][zone] || 0;
+    return kicker.goal_kicking + roll(20) - 10 - distMod - fatigueMod(state.minute) * 0.2 > 42;
+}
+
+// ── Card Logic ──
+function checkCard(state, team, isDefending) {
+    const xv = getXV(team);
+    const avgAgg = avg(xv, "aggression");
+    const avgDisc = avg(xv, "discipline");
+    const pressureMod = Math.abs(state.momentum) > 60 ? 8 : 0;
+    const cardRisk = avgAgg * 0.4 - avgDisc * 0.3 + pressureMod + (isDefending ? 5 : 0) + roll(20) - 10;
+    if (cardRisk > 65) return "red";
+    if (cardRisk > 45) return "yellow";
+    return null;
+}
+
+// ── Injury Logic ──
+function checkInjury(state) {
+    const baseRisk = state.minute > 60 ? 3 : 1;
+    return chance(baseRisk);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   COMMENTARY — Text generation
+   ═══════════════════════════════════════════════════════════════════ */
+
+const COMM = {
+    scrum_clean: ["{atk} win clean ball from the scrum.","{atk}'s pack secure the ball well."],
+    scrum_dominant: ["Huge shove from {atk}! They drive {def} back 5 metres!","Dominant scrum from {atk} — {def} under huge pressure!"],
+    scrum_penalty_won: ["Penalty to {atk}! The scrum collapses — referee penalises {def}."],
+    scrum_penalty_conceded: ["{atk}'s scrum goes wrong. Penalty to {def}."],
+    scrum_turnover: ["Turnover at the scrum! {def} win the ball against the head!"],
+    lineout_clean: ["{atk} secure their own lineout.","{hooker} finds his jumper — clean catch."],
+    lineout_steal: ["Lineout stolen by {def}! Brilliant read!"],
+    lineout_overthrow: ["Overthrown! {hooker}'s throw goes astray for {atk}."],
+    lineout_drive: ["{atk} set up the driving maul from the lineout!"],
+    ruck_fast: ["Quick ball from {atk} — ruck speed is excellent."],
+    ruck_slow: ["Slow ball from {atk} — the defence has time to reset."],
+    ruck_turnover: ["Turnover at the breakdown! {jackal} gets over the ball for {def}!","Brilliant jackal from {jackal}! {def} win a turnover!"],
+    ruck_penalty_atk: ["Penalty to {atk}! {def} not rolling away at the breakdown."],
+    ruck_penalty_def: ["Penalty to {def}! {atk} hands in the ruck."],
+    maul_try: ["MAUL TRY! {atk} drive it over from close range! Unstoppable!"],
+    maul_gain: ["{atk}'s driving maul makes good ground — 10 metres gained!"],
+    maul_penalty_won: ["Penalty to {atk}! {def} collapsed the maul illegally."],
+    maul_penalty_conceded: ["{atk}'s maul goes wrong — penalty to {def}."],
+    maul_held: ["The maul is held up! {def} do well to stop the drive."],
+    kick_good: ["{kicker} puts in a superb kick — great territory for {atk}.","{kicker} finds touch deep in {def}'s half."],
+    kick_ok: ["{kicker} kicks for territory — decent result for {atk}."],
+    kick_poor: ["Poor kick from {kicker}! {def} gather easily and will counter."],
+    backline_break: ["{runner} breaks the line! Brilliant footwork to beat the defender!","Gap! {runner} is through for {atk}! Racing away!"],
+    backline_gain: ["{atk} move the ball wide — good metres gained through the backs."],
+    backline_no_gain: ["{atk} spread it wide but {def}'s defence holds firm. No gain."],
+    try_scored: ["TRY! {scorer} touches down for {atk}!","TRY! {atk} score through {scorer}! Brilliant!"],
+    conversion_good: ["{kicker} steps up for the conversion... it's GOOD!"],
+    conversion_missed: ["{kicker} misses the conversion. Just wide."],
+    penalty_goal: ["{kicker} slots the penalty for {atk}. Three points!"],
+    penalty_missed: ["{kicker} pushes the penalty wide! No score."],
+    penalty_touch: ["{atk} kick for touch — they'll have a lineout in {def}'s half."],
+    yellow_card: ["YELLOW CARD! {player} of {team} is sent to the sin bin!"],
+    red_card: ["RED CARD! {player} of {team} is sent off! That changes everything!"],
+    injury: ["{player} is down injured for {team}. Medics on the field."],
+    sub: ["{off} is replaced by {on} for {team}."],
+    momentum_shift: ["{team} are building real momentum now — they're on the front foot!","The tide is turning in favour of {team}!","{team} have all the momentum — {opp} under serious pressure!"],
+    phase: ["{carrier} carries for {atk} — {outcome}.","{atk} go through the phases. {carrier} takes it up."],
+    kickoff: ["Kick-off! {atk} get us underway at {venue}."],
+    halftime: ["HALF TIME: {home} {hs} - {as} {away}"],
+    fulltime: ["FULL TIME: {home} {hs} - {as} {away}"],
+};
+
+function comm(key, vars) {
+    const templates = COMM[key] || [key];
+    let t = pick(templates);
+    for (const [k, v] of Object.entries(vars || {})) t = t.replace(new RegExp(`\\{${k}\\}`, "g"), v);
+    return t;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   UI — DOM rendering, animations
+   ═══════════════════════════════════════════════════════════════════ */
+
+const $ = id => document.getElementById(id);
+
+function addComm(state, text, eventClass) {
+    const el = document.createElement("div");
+    el.className = "comm-line" + (eventClass ? " event-" + eventClass : "");
+    el.innerHTML = `<span class="min">${state.minute}'</span>${text}`;
+    $("commentary").appendChild(el);
+    $("commentary").scrollTop = $("commentary").scrollHeight;
+    state.events.push({ min: state.minute, text, type: eventClass });
+}
+
+function updateScoreboard(state) {
+    $("sb-score").textContent = `${state.homeScore} - ${state.awayScore}`;
+    $("sb-clock").innerHTML = `<span class="min">${state.minute}'</span>`;
+    $("sb-status").textContent = state.minute <= 40 ? "1ST HALF" : state.minute <= 80 ? "2ND HALF" : "FULL TIME";
+}
+
+function updateStats(state) {
+    const totalPoss = state.homePoss + state.awayPoss || 1;
+    const hp = Math.round(state.homePoss / totalPoss * 100);
+    $("stat-poss").textContent = `${hp}% - ${100 - hp}%`;
+    $("poss-bar").style.width = hp + "%";
+    const totalTerr = state.homeTerritory + state.awayTerritory || 1;
+    const ht = Math.round(state.homeTerritory / totalTerr * 100);
+    $("stat-terr").textContent = `${ht}% - ${100 - ht}%`;
+    $("terr-bar").style.width = ht + "%";
+    $("stat-phases").textContent = state.phases;
+    // Ruck speed
+    const rClass = { slow:"ruck-slow", ok:"ruck-ok", quick:"ruck-quick", lightning:"ruck-lightning" }[state.ruckSpeed] || "ruck-ok";
+    const rLabel = { slow:"Slow", ok:"OK", quick:"Quick", lightning:"Lightning" }[state.ruckSpeed] || "OK";
+    $("ruck-display").innerHTML = `<span class="ruck-speed ${rClass}">${rLabel}</span>`;
+    // Momentum
+    const mHome = clamp(50 + state.momentum / 2, 5, 95);
+    $("mom-home").style.width = mHome + "%";
+    $("mom-away").style.width = (100 - mHome) + "%";
+    const mText = state.momentum > 30 ? state.home.name + " dominant" : state.momentum > 10 ? state.home.name + " slight edge" :
+        state.momentum < -30 ? state.away.name + " dominant" : state.momentum < -10 ? state.away.name + " slight edge" : "Even";
+    $("mom-text").textContent = mText;
+}
+
+function renderBench(team, elId) {
+    const bench = team.squad.filter(p => !p.onField && !p.redCard);
+    $(elId).innerHTML = bench.map(p =>
+        `<div class="sub-player"><span>${p.name}</span><span class="pos">${p.pos}</span></div>`
+    ).join("");
+}
+
+function showModal(state) {
+    state.paused = true;
+    $("modal-title").textContent = state.minute === 40 ? "Half Time" : `Tactical Break — ${state.minute}'`;
+    $("modal-score").textContent = `${state.homeScore} - ${state.awayScore}`;
+    const totalPoss = state.homePoss + state.awayPoss || 1;
+    $("modal-poss").textContent = Math.round(state.homePoss/totalPoss*100) + "% - " + Math.round(state.awayPoss/totalPoss*100) + "%";
+    const totalTerr = state.homeTerritory + state.awayTerritory || 1;
+    $("modal-terr").textContent = Math.round(state.homeTerritory/totalTerr*100) + "% - " + Math.round(state.awayTerritory/totalTerr*100) + "%";
+    $("modal-phases").textContent = state.phases;
+    // Load current tactics into dropdowns
+    $("t-def-width").value = state.home.tactics.defWidth;
+    $("t-atk-width").value = state.home.tactics.atkWidth;
+    $("t-breakdown").value = state.home.tactics.breakdown;
+    $("t-kick").value = state.home.tactics.kickFreq;
+    $("t-setpiece").value = state.home.tactics.setPiece;
+    $("modal").classList.add("active");
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MAIN — Game loop, event scheduling
+   ═══════════════════════════════════════════════════════════════════ */
+
+let STATE = null;
+const EVENT_DELAY = 2800;
+
+function startMatch() {
+    $("start-screen").style.display = "none";
+    $("game-ui").style.display = "block";
+    STATE = createMatchState(SALE_SHARKS, LEICESTER_TIGERS);
+    renderBench(STATE.home, "home-bench");
+    renderBench(STATE.away, "away-bench");
+    addComm(STATE, comm("kickoff", { atk: STATE.home.name, venue: "AJ Bell Stadium" }), "kickoff");
+    updateScoreboard(STATE);
+    updateStats(STATE);
+    setTimeout(() => runMinute(STATE), EVENT_DELAY);
+}
+
+function resumeMatch() {
+    STATE.home.tactics.defWidth = $("t-def-width").value;
+    STATE.home.tactics.atkWidth = $("t-atk-width").value;
+    STATE.home.tactics.breakdown = $("t-breakdown").value;
+    STATE.home.tactics.kickFreq = $("t-kick").value;
+    STATE.home.tactics.setPiece = $("t-setpiece").value;
+    $("modal").classList.remove("active");
+    STATE.paused = false;
+    setTimeout(() => runMinute(STATE), EVENT_DELAY);
+}
+
+// ── SVG Pitch Dot Animation ──
+function showPitchAnimation(state, type, data) {
+    const panel = $("commentary");
+    const container = document.createElement("div");
+    container.className = "pitch-anim active";
+    const atkC = state.possession === "home" ? (state.home.color||"#3b82f6") : (state.away.color||"#ef4444");
+    const defC = state.possession === "home" ? (state.away.color||"#ef4444") : (state.home.color||"#3b82f6");
+    let dots = "";
+
+    if (type === "try") {
+        dots += `<circle cx="60" cy="70" r="5" fill="${atkC}" opacity="0.4"/><circle cx="95" cy="45" r="5" fill="${atkC}" opacity="0.4"/>`;
+        dots += `<circle cx="130" cy="85" r="5" fill="${atkC}" opacity="0.4"/><circle cx="160" cy="55" r="5" fill="${atkC}" opacity="0.5"/>`;
+        dots += `<circle cx="220" cy="70" r="7" fill="${atkC}"><animate attributeName="cx" from="220" to="378" dur="1.4s" fill="freeze"/></circle>`;
+        dots += `<circle cx="220" cy="70" r="3" fill="white"><animate attributeName="cx" from="220" to="378" dur="1.4s" fill="freeze"/></circle>`;
+        dots += `<circle cx="290" cy="48" r="5" fill="${defC}" opacity="0.5"><animate attributeName="cx" from="290" to="345" dur="1.4s" fill="freeze"/></circle>`;
+        dots += `<circle cx="310" cy="92" r="5" fill="${defC}" opacity="0.5"><animate attributeName="cx" from="310" to="360" dur="1.4s" fill="freeze"/></circle>`;
+        dots += `<circle cx="378" cy="70" r="0" fill="${atkC}" opacity="0"><animate attributeName="r" from="0" to="20" dur="0.6s" begin="1.2s" fill="freeze"/><animate attributeName="opacity" from="0" to="0.35" dur="0.6s" begin="1.2s" fill="freeze"/></circle>`;
+        dots += `<line x1="388" y1="8" x2="388" y2="132" stroke="white" stroke-width="2" opacity="0.35"/>`;
+        dots += `<text x="200" y="22" fill="${atkC}" font-size="13" font-weight="800" text-anchor="middle" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="1.5s" fill="freeze"/>TRY!</text>`;
+    } else if (type === "turnover") {
+        dots += `<circle cx="200" cy="70" r="7" fill="${atkC}"/><circle cx="200" cy="70" r="3" fill="white"/>`;
+        dots += `<circle cx="215" cy="62" r="6" fill="${defC}"><animate attributeName="fill-opacity" from="0.4" to="1" dur="0.4s" repeatCount="3"/></circle>`;
+        dots += `<circle cx="208" cy="82" r="5" fill="${defC}" opacity="0.6"/>`;
+        dots += `<circle cx="200" cy="70" r="3" fill="white"><animate attributeName="cx" from="200" to="215" dur="0.6s" begin="0.4s" fill="freeze"/><animate attributeName="cy" from="70" to="62" dur="0.6s" begin="0.4s" fill="freeze"/></circle>`;
+        dots += `<text x="200" y="22" fill="${defC}" font-size="11" font-weight="700" text-anchor="middle" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.4s" begin="0.8s" fill="freeze"/>TURNOVER</text>`;
+    } else if (type === "card") {
+        const cc = data?.card === "red" ? "#ef4444" : "#eab308";
+        dots += `<rect x="186" y="32" width="28" height="40" rx="3" fill="${cc}" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.4s" fill="freeze"/></rect>`;
+        dots += `<circle cx="200" cy="100" r="6" fill="${defC}"/>`;
+        dots += `<text x="200" y="125" fill="${cc}" font-size="9" font-weight="700" text-anchor="middle">${data?.card?.toUpperCase()} CARD</text>`;
+    } else if (type === "penalty_goal") {
+        dots += `<line x1="196" y1="8" x2="196" y2="38" stroke="white" stroke-width="2" opacity="0.4"/>`;
+        dots += `<line x1="204" y1="8" x2="204" y2="38" stroke="white" stroke-width="2" opacity="0.4"/>`;
+        dots += `<line x1="191" y1="38" x2="209" y2="38" stroke="white" stroke-width="1.5" opacity="0.4"/>`;
+        dots += `<circle cx="200" cy="115" r="3" fill="white"><animate attributeName="cy" from="115" to="28" dur="1s" fill="freeze"/></circle>`;
+        dots += `<text x="200" y="22" fill="${atkC}" font-size="13" font-weight="800" text-anchor="middle" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="0.8s" fill="freeze"/>3 PTS</text>`;
+    }
+
+    container.innerHTML = `<svg viewBox="0 0 400 140" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="140" fill="#132a13" rx="8"/>
+        <line x1="200" y1="0" x2="200" y2="140" stroke="white" stroke-width="0.5" opacity="0.1"/>
+        <line x1="100" y1="0" x2="100" y2="140" stroke="white" stroke-width="0.5" opacity="0.07" stroke-dasharray="4"/>
+        <line x1="300" y1="0" x2="300" y2="140" stroke="white" stroke-width="0.5" opacity="0.07" stroke-dasharray="4"/>
+        ${dots}</svg>`;
+    panel.appendChild(container);
+    panel.scrollTop = panel.scrollHeight;
+    setTimeout(() => { container.classList.remove("active"); setTimeout(() => container.remove(), 400); }, 3500);
+}
+
+function runMinute(state) {
+    if (state.paused) return;
+    state.minute++;
+
+    state.sinBin = state.sinBin.filter(sb => {
+        if (state.minute >= sb.returnMin) {
+            sb.player.yellowCard = false; sb.player.onField = true;
+            addComm(state, `${sb.player.name} returns from the sin bin.`);
+            return false;
+        }
+        return true;
+    });
+
+    if (state.minute === 20 || state.minute === 40 || state.minute === 60) {
+        if (state.minute === 40) {
+            addComm(state, comm("halftime", { home:state.home.name, away:state.away.name, hs:state.homeScore, as:state.awayScore }), "half");
+            state.half = 2; state.possession = "away"; state.zone = 2;
+        }
+        updateScoreboard(state); updateStats(state); showModal(state); return;
+    }
+
+    if (state.possession === "home") { state.homePoss++; state.homeTerritory += state.zone; }
+    else { state.awayPoss++; state.awayTerritory += (4 - state.zone); }
+
+    simulatePassage(state);
+
+    if (state.minute > 55 && chance(2)) {
+        const tk = pick(["home","away"]), t = tk === "home" ? state.home : state.away;
+        const inj = pick(getXV(t));
+        if (inj) {
+            addComm(state, comm("injury", { player: inj.name, team: t.name }));
+            const bench = t.squad.filter(p => !p.onField && !p.redCard);
+            const rep = bench.find(p => p.pos === inj.pos) || bench[0];
+            if (rep) { inj.onField = false; rep.onField = true; addComm(state, comm("sub", { off:inj.name, on:rep.name, team:t.name })); }
+        }
+    }
+
+    if (Math.abs(state.momentum) > 35 && chance(20)) {
+        const mT = state.momentum > 0 ? state.home : state.away, oT = state.momentum > 0 ? state.away : state.home;
+        addComm(state, comm("momentum_shift", { team:mT.name, opp:oT.name }), "momentum");
+    }
+
+    updateScoreboard(state); updateStats(state);
+
+    if (state.minute >= 80) {
+        addComm(state, comm("fulltime", { home:state.home.name, away:state.away.name, hs:state.homeScore, as:state.awayScore }), "half");
+        updateScoreboard(state); return;
+    }
+    setTimeout(() => runMinute(state), EVENT_DELAY);
+}
+
+// ── Passage of play: multiple phases building territory ──
+function simulatePassage(state) {
+    const atk = atkTeam(state), def = defTeam(state);
+    state.phases++;
+    const startRoll = roll(100);
+
+    if (startRoll <= 10) { resolveAndNarrateScrum(state); return; }
+    if (startRoll <= 18) { resolveAndNarrateLineout(state); return; }
+
+    // Open play — 2-5 phases building
+    const numPhases = 2 + roll(3);
+    for (let ph = 0; ph < numPhases; ph++) {
+        const ruck = resolveRuck(state);
+        if (ruck.type === "turnover") {
+            const j = pick(getForwards(def).filter(p => p.jackling > 60)) || pick(getForwards(def));
+            addComm(state, comm("ruck_turnover", { def:def.name, jackal:j?.name||"A defender" }), "turnover");
+            showPitchAnimation(state, "turnover");
+            swapPossession(state); shiftMomentum(state, state.possession, 12); return;
+        }
+        if (ruck.type === "penalty") {
+            if (ruck.side === "atk") { addComm(state, comm("ruck_penalty_atk",{atk:atk.name,def:def.name})); handlePenaltyDecision(state); }
+            else { addComm(state, comm("ruck_penalty_def",{atk:atk.name,def:def.name})); swapPossession(state); handlePenaltyDecision(state); }
+            return;
+        }
+        const speed = ruck.speed;
+        if (ph === 0) {
+            if (speed === "slow") addComm(state, comm("ruck_slow",{atk:atk.name}));
+            else if (speed === "lightning") addComm(state, comm("ruck_fast",{atk:atk.name}));
+        }
+
+        // Kick decision
+        const kickChance = clamp(10 + getTacticVal(atk,"kick_chance") + (state.zone<=1?15:-5), 3, 30);
+        if (chance(kickChance)) { resolveAndNarrateKick(state); return; }
+
+        // Card check (very rare)
+        if (chance(2.5)) {
+            const dT = defTeam(state), tK = state.possession==="home"?"away":"home";
+            const card = checkCard(state, dT, true);
+            if (card) {
+                const off = pick(getXV(dT));
+                if (off) {
+                    if (card==="yellow") { off.yellowCard=true; off.onField=false; state.sinBin.push({team:tK,player:off,returnMin:state.minute+10}); addComm(state,comm("yellow_card",{player:off.name,team:dT.name}),"yellow_card"); showPitchAnimation(state,"card",{card:"yellow",player:off.name}); shiftMomentum(state,state.possession,15); }
+                    else { off.redCard=true; off.onField=false; addComm(state,comm("red_card",{player:off.name,team:dT.name}),"red_card"); showPitchAnimation(state,"card",{card:"red",player:off.name}); shiftMomentum(state,state.possession,25); }
+                    handlePenaltyDecision(state); return;
+                }
+            }
+        }
+
+        // Backline move on quick ball
+        if ((speed==="quick"||speed==="lightning") && chance(48 + getTacticVal(atk,"wide_attack"))) {
+            const bl = resolveBacklineMove(state);
+            if (bl.type === "line_break") {
+                addComm(state, comm("backline_break",{runner:bl.runner.name,atk:atk.name}));
+                if (state.zone<4) state.zone++;
+                shiftMomentum(state,state.possession,10);
+                if (state.zone>=4 && chance(50+momentumMod(state))) { scoreTry(state,bl.runner); showPitchAnimation(state,"try"); return; }
+                if (state.zone>=3 && chance(22+momentumMod(state))) { scoreTry(state,bl.runner); showPitchAnimation(state,"try"); return; }
+            } else if (bl.type === "gain") {
+                addComm(state, comm("backline_gain",{atk:atk.name}));
+                if (state.zone<4 && chance(45)) state.zone++;
+                shiftMomentum(state,state.possession,4);
+            } else {
+                addComm(state, comm("backline_no_gain",{atk:atk.name,def:def.name}));
+            }
+        } else {
+            // Forward carry
+            const c = pick(getForwards(atk));
+            const gr = roll(100);
+            let out, gained = false;
+            if (gr>70) { out="drives forward powerfully"; gained=true; }
+            else if (gr>40) { out="makes a few metres"; gained=chance(40); }
+            else if (gr>15) { out="is tackled but recycles"; }
+            else { out="is stopped dead by a huge hit"; }
+            addComm(state, comm("phase",{carrier:c?.name||"A forward",atk:atk.name,outcome:out}));
+            if (gained && state.zone<4) state.zone++;
+            shiftMomentum(state,state.possession,gained?3:1);
+            if (state.zone>=4 && ph>=2 && chance(16+momentumMod(state)+ph*4)) {
+                scoreTry(state, chance(55)?c:pick(getXV(atk)));
+                showPitchAnimation(state,"try"); return;
+            }
+        }
+    }
+}
+
+function resolveAndNarrateScrum(state) {
+    const atk=atkTeam(state),def=defTeam(state),result=resolveScrum(state),v={atk:atk.name,def:def.name};
+    if (result==="dominant_drive") { addComm(state,comm("scrum_dominant",v)); if(state.zone<4)state.zone++; shiftMomentum(state,state.possession,12);
+        if(state.zone>=4&&chance(18)){scoreTry(state,pick(getForwards(atk)));showPitchAnimation(state,"try");} }
+    else if (result==="clean_ball") { addComm(state,comm("scrum_clean",v)); calcRuckSpeed(atk,state); }
+    else if (result==="penalty_won") { addComm(state,comm("scrum_penalty_won",v)); handlePenaltyDecision(state); }
+    else if (result==="penalty_conceded") { addComm(state,comm("scrum_penalty_conceded",v)); swapPossession(state); handlePenaltyDecision(state); }
+    else if (result==="turnover") { addComm(state,comm("scrum_turnover",v),"turnover"); showPitchAnimation(state,"turnover"); swapPossession(state); shiftMomentum(state,state.possession,10); }
+}
+
+function resolveAndNarrateLineout(state) {
+    const atk=atkTeam(state),def=defTeam(state),hk=getByPos(atk,"HK"),result=resolveLineout(state),v={atk:atk.name,def:def.name,hooker:hk?.name||"The hooker"};
+    if (result==="clean_catch") { addComm(state,comm("lineout_clean",v)); calcRuckSpeed(atk,state); }
+    else if (result==="drive_setup") { addComm(state,comm("lineout_drive",v)); resolveAndNarrateMaul(state); }
+    else if (result==="steal") { addComm(state,comm("lineout_steal",v),"turnover"); showPitchAnimation(state,"turnover"); swapPossession(state); shiftMomentum(state,state.possession,10); }
+    else if (result==="overthrow") { addComm(state,comm("lineout_overthrow",v)); swapPossession(state); }
+}
+
+function resolveAndNarrateMaul(state) {
+    const atk=atkTeam(state),def=defTeam(state),result=resolveMaul(state),v={atk:atk.name,def:def.name};
+    if (result==="maul_try") { addComm(state,comm("maul_try",v),"try"); scoreTry(state,pick(getForwards(atk))); showPitchAnimation(state,"try"); }
+    else if (result==="metres_gained") { addComm(state,comm("maul_gain",v)); if(state.zone<4)state.zone++; shiftMomentum(state,state.possession,6); }
+    else if (result==="penalty_won") { addComm(state,comm("maul_penalty_won",v)); handlePenaltyDecision(state); }
+    else if (result==="penalty_conceded") { addComm(state,comm("maul_penalty_conceded",v)); swapPossession(state); handlePenaltyDecision(state); }
+    else { addComm(state,comm("maul_held",v)); }
+}
+
+function resolveAndNarrateKick(state) {
+    const atk=atkTeam(state),def=defTeam(state);
+    const types=["territorial","box","garryowen","grubber","chip"];
+    const type=state.zone<=1?"territorial":pick(types);
+    const result=resolveKick(state,type);
+    const v={atk:atk.name,def:def.name,kicker:result.kicker?.name||"The kicker"};
+    if(result.outcome==="good"){addComm(state,comm("kick_good",v));swapPossession(state);for(let i=0;i<result.territory;i++)if(state.zone>0)state.zone--;}
+    else if(result.outcome==="ok"){addComm(state,comm("kick_ok",v));swapPossession(state);if(state.zone>0)state.zone--;}
+    else{addComm(state,comm("kick_poor",v));swapPossession(state);if(state.zone<4)state.zone++;}
+}
+
+function handlePenaltyDecision(state) {
+    const atk=atkTeam(state),kicker=getKicker(atk);
+    if(!kicker) return;
+    // Only kick at goal from zones 3-4 with good kicker, or zone 2 with elite kicker
+    if(state.zone>=3 && kicker.goal_kicking>65){
+        if(resolvePenaltyKick(state,atk,state.zone)){
+            addComm(state,comm("penalty_goal",{kicker:kicker.name,atk:atk.name}),"penalty_goal");
+            showPitchAnimation(state,"penalty_goal");
+            if(state.possession==="home")state.homeScore+=3;else state.awayScore+=3;
+            shiftMomentum(state,state.possession,8);swapPossession(state);state.zone=2;
+        } else { addComm(state,comm("penalty_missed",{kicker:kicker.name}));swapPossession(state);state.zone=1; }
+    } else if(state.zone>=2 && kicker.goal_kicking>82){
+        if(resolvePenaltyKick(state,atk,state.zone)){
+            addComm(state,comm("penalty_goal",{kicker:kicker.name,atk:atk.name}),"penalty_goal");
+            showPitchAnimation(state,"penalty_goal");
+            if(state.possession==="home")state.homeScore+=3;else state.awayScore+=3;
+            shiftMomentum(state,state.possession,8);swapPossession(state);state.zone=2;
+        } else { addComm(state,comm("penalty_missed",{kicker:kicker.name}));swapPossession(state);state.zone=1; }
+    } else {
+        addComm(state,comm("penalty_touch",{atk:atk.name,def:defTeam(state).name}));
+        state.zone=Math.min(4,state.zone+2);
+    }
+}
+
+function scoreTry(state,scorer) {
+    const atk=atkTeam(state);
+    addComm(state,comm("try_scored",{scorer:scorer?.name||"A player",atk:atk.name}),"try");
+    if(state.possession==="home"){state.homeScore+=5;state.homeTries++;}else{state.awayScore+=5;state.awayTries++;}
+    shiftMomentum(state,state.possession,15);
+    if(resolveConversion(state,atk)){
+        const k=getKicker(atk);addComm(state,comm("conversion_good",{kicker:k?.name||"The kicker"}),"conversion");
+        if(state.possession==="home")state.homeScore+=2;else state.awayScore+=2;
+    } else { addComm(state,comm("conversion_missed",{kicker:getKicker(atk)?.name||"The kicker"})); }
+    swapPossession(state);state.zone=2;
+}
+
+function swapPossession(state) { state.possession=state.possession==="home"?"away":"home"; state.zone=4-state.zone; }
+
+</script>
+</body>
+</html>
