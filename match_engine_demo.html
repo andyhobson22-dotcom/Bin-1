@@ -590,7 +590,7 @@ function showModal(state) {
    ═══════════════════════════════════════════════════════════════════ */
 
 let STATE = null;
-const EVENT_DELAY = 2500; // ms between events
+const EVENT_DELAY = 2800;
 
 function startMatch() {
     $("start-screen").style.display = "none";
@@ -605,7 +605,6 @@ function startMatch() {
 }
 
 function resumeMatch() {
-    // Save tactics from modal
     STATE.home.tactics.defWidth = $("t-def-width").value;
     STATE.home.tactics.atkWidth = $("t-atk-width").value;
     STATE.home.tactics.breakdown = $("t-breakdown").value;
@@ -616,357 +615,265 @@ function resumeMatch() {
     setTimeout(() => runMinute(STATE), EVENT_DELAY);
 }
 
+// ── SVG Pitch Dot Animation ──
+function showPitchAnimation(state, type, data) {
+    const panel = $("commentary");
+    const container = document.createElement("div");
+    container.className = "pitch-anim active";
+    const atkC = state.possession === "home" ? (state.home.color||"#3b82f6") : (state.away.color||"#ef4444");
+    const defC = state.possession === "home" ? (state.away.color||"#ef4444") : (state.home.color||"#3b82f6");
+    let dots = "";
+
+    if (type === "try") {
+        dots += `<circle cx="60" cy="70" r="5" fill="${atkC}" opacity="0.4"/><circle cx="95" cy="45" r="5" fill="${atkC}" opacity="0.4"/>`;
+        dots += `<circle cx="130" cy="85" r="5" fill="${atkC}" opacity="0.4"/><circle cx="160" cy="55" r="5" fill="${atkC}" opacity="0.5"/>`;
+        dots += `<circle cx="220" cy="70" r="7" fill="${atkC}"><animate attributeName="cx" from="220" to="378" dur="1.4s" fill="freeze"/></circle>`;
+        dots += `<circle cx="220" cy="70" r="3" fill="white"><animate attributeName="cx" from="220" to="378" dur="1.4s" fill="freeze"/></circle>`;
+        dots += `<circle cx="290" cy="48" r="5" fill="${defC}" opacity="0.5"><animate attributeName="cx" from="290" to="345" dur="1.4s" fill="freeze"/></circle>`;
+        dots += `<circle cx="310" cy="92" r="5" fill="${defC}" opacity="0.5"><animate attributeName="cx" from="310" to="360" dur="1.4s" fill="freeze"/></circle>`;
+        dots += `<circle cx="378" cy="70" r="0" fill="${atkC}" opacity="0"><animate attributeName="r" from="0" to="20" dur="0.6s" begin="1.2s" fill="freeze"/><animate attributeName="opacity" from="0" to="0.35" dur="0.6s" begin="1.2s" fill="freeze"/></circle>`;
+        dots += `<line x1="388" y1="8" x2="388" y2="132" stroke="white" stroke-width="2" opacity="0.35"/>`;
+        dots += `<text x="200" y="22" fill="${atkC}" font-size="13" font-weight="800" text-anchor="middle" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="1.5s" fill="freeze"/>TRY!</text>`;
+    } else if (type === "turnover") {
+        dots += `<circle cx="200" cy="70" r="7" fill="${atkC}"/><circle cx="200" cy="70" r="3" fill="white"/>`;
+        dots += `<circle cx="215" cy="62" r="6" fill="${defC}"><animate attributeName="fill-opacity" from="0.4" to="1" dur="0.4s" repeatCount="3"/></circle>`;
+        dots += `<circle cx="208" cy="82" r="5" fill="${defC}" opacity="0.6"/>`;
+        dots += `<circle cx="200" cy="70" r="3" fill="white"><animate attributeName="cx" from="200" to="215" dur="0.6s" begin="0.4s" fill="freeze"/><animate attributeName="cy" from="70" to="62" dur="0.6s" begin="0.4s" fill="freeze"/></circle>`;
+        dots += `<text x="200" y="22" fill="${defC}" font-size="11" font-weight="700" text-anchor="middle" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.4s" begin="0.8s" fill="freeze"/>TURNOVER</text>`;
+    } else if (type === "card") {
+        const cc = data?.card === "red" ? "#ef4444" : "#eab308";
+        dots += `<rect x="186" y="32" width="28" height="40" rx="3" fill="${cc}" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.4s" fill="freeze"/></rect>`;
+        dots += `<circle cx="200" cy="100" r="6" fill="${defC}"/>`;
+        dots += `<text x="200" y="125" fill="${cc}" font-size="9" font-weight="700" text-anchor="middle">${data?.card?.toUpperCase()} CARD</text>`;
+    } else if (type === "penalty_goal") {
+        dots += `<line x1="196" y1="8" x2="196" y2="38" stroke="white" stroke-width="2" opacity="0.4"/>`;
+        dots += `<line x1="204" y1="8" x2="204" y2="38" stroke="white" stroke-width="2" opacity="0.4"/>`;
+        dots += `<line x1="191" y1="38" x2="209" y2="38" stroke="white" stroke-width="1.5" opacity="0.4"/>`;
+        dots += `<circle cx="200" cy="115" r="3" fill="white"><animate attributeName="cy" from="115" to="28" dur="1s" fill="freeze"/></circle>`;
+        dots += `<text x="200" y="22" fill="${atkC}" font-size="13" font-weight="800" text-anchor="middle" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="0.8s" fill="freeze"/>3 PTS</text>`;
+    }
+
+    container.innerHTML = `<svg viewBox="0 0 400 140" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="140" fill="#132a13" rx="8"/>
+        <line x1="200" y1="0" x2="200" y2="140" stroke="white" stroke-width="0.5" opacity="0.1"/>
+        <line x1="100" y1="0" x2="100" y2="140" stroke="white" stroke-width="0.5" opacity="0.07" stroke-dasharray="4"/>
+        <line x1="300" y1="0" x2="300" y2="140" stroke="white" stroke-width="0.5" opacity="0.07" stroke-dasharray="4"/>
+        ${dots}</svg>`;
+    panel.appendChild(container);
+    panel.scrollTop = panel.scrollHeight;
+    setTimeout(() => { container.classList.remove("active"); setTimeout(() => container.remove(), 400); }, 3500);
+}
+
 function runMinute(state) {
     if (state.paused) return;
     state.minute++;
 
-    // Check sin bin returns
     state.sinBin = state.sinBin.filter(sb => {
         if (state.minute >= sb.returnMin) {
-            sb.player.yellowCard = false;
-            addComm(state, `${sb.player.name} returns from the sin bin for ${sb.team === "home" ? state.home.name : state.away.name}.`);
+            sb.player.yellowCard = false; sb.player.onField = true;
+            addComm(state, `${sb.player.name} returns from the sin bin.`);
             return false;
         }
         return true;
     });
 
-    // Tactical pauses
     if (state.minute === 20 || state.minute === 40 || state.minute === 60) {
         if (state.minute === 40) {
-            addComm(state, comm("halftime", { home: state.home.name, away: state.away.name, hs: state.homeScore, as: state.awayScore }), "half");
-            state.half = 2;
-            state.possession = "away"; // Second half kickoff
-            state.zone = 2;
+            addComm(state, comm("halftime", { home:state.home.name, away:state.away.name, hs:state.homeScore, as:state.awayScore }), "half");
+            state.half = 2; state.possession = "away"; state.zone = 2;
         }
-        updateScoreboard(state);
-        updateStats(state);
-        showModal(state);
-        return;
+        updateScoreboard(state); updateStats(state); showModal(state); return;
     }
 
-    // Track possession/territory
     if (state.possession === "home") { state.homePoss++; state.homeTerritory += state.zone; }
     else { state.awayPoss++; state.awayTerritory += (4 - state.zone); }
 
-    // ── Determine phase type for this minute ──
-    simulateMinute(state);
+    simulatePassage(state);
 
-    // Check for injury
-    if (checkInjury(state)) {
-        const team = pick(["home", "away"]);
-        const t = team === "home" ? state.home : state.away;
-        const injured = pick(getXV(t));
-        if (injured) {
-            addComm(state, comm("injury", { player: injured.name, team: t.name }));
-            // Auto-sub if bench available
+    if (state.minute > 55 && chance(2)) {
+        const tk = pick(["home","away"]), t = tk === "home" ? state.home : state.away;
+        const inj = pick(getXV(t));
+        if (inj) {
+            addComm(state, comm("injury", { player: inj.name, team: t.name }));
             const bench = t.squad.filter(p => !p.onField && !p.redCard);
-            const replacement = bench.find(p => p.pos === injured.pos) || bench[0];
-            if (replacement) {
-                injured.onField = false;
-                replacement.onField = true;
-                addComm(state, comm("sub", { off: injured.name, on: replacement.name, team: t.name }));
-            }
+            const rep = bench.find(p => p.pos === inj.pos) || bench[0];
+            if (rep) { inj.onField = false; rep.onField = true; addComm(state, comm("sub", { off:inj.name, on:rep.name, team:t.name })); }
         }
     }
 
-    // Momentum commentary
-    if (Math.abs(state.momentumStreak) >= 4 && state.minute % 5 === 0) {
-        const mTeam = state.momentum > 0 ? state.home : state.away;
-        const oTeam = state.momentum > 0 ? state.away : state.home;
-        addComm(state, comm("momentum_shift", { team: mTeam.name, opp: oTeam.name }), "momentum");
+    if (Math.abs(state.momentum) > 35 && chance(20)) {
+        const mT = state.momentum > 0 ? state.home : state.away, oT = state.momentum > 0 ? state.away : state.home;
+        addComm(state, comm("momentum_shift", { team:mT.name, opp:oT.name }), "momentum");
     }
 
-    updateScoreboard(state);
-    updateStats(state);
+    updateScoreboard(state); updateStats(state);
 
     if (state.minute >= 80) {
-        addComm(state, comm("fulltime", { home: state.home.name, away: state.away.name, hs: state.homeScore, as: state.awayScore }), "half");
-        updateScoreboard(state);
-        return;
+        addComm(state, comm("fulltime", { home:state.home.name, away:state.away.name, hs:state.homeScore, as:state.awayScore }), "half");
+        updateScoreboard(state); return;
     }
-
     setTimeout(() => runMinute(state), EVENT_DELAY);
 }
 
-function simulateMinute(state) {
+// ── Passage of play: multiple phases building territory ──
+function simulatePassage(state) {
     const atk = atkTeam(state), def = defTeam(state);
-    const r = roll(100);
-    const kickMod = getTacticVal(atk, "kick_chance");
-    const kickThreshold = clamp(20 + kickMod + (state.zone <= 1 ? 15 : state.zone >= 3 ? -10 : 0), 5, 50);
-
     state.phases++;
+    const startRoll = roll(100);
 
-    // Decide event type
-    if (r <= 12) {
-        // Scrum
-        resolveAndNarrateScrum(state);
-    } else if (r <= 20) {
-        // Lineout
-        resolveAndNarrateLineout(state);
-    } else if (r <= 20 + kickThreshold) {
-        // Kick
-        resolveAndNarrateKick(state);
-    } else if (r <= 75) {
-        // Phase play (ruck + carry/backline)
-        resolveAndNarratePhase(state);
-    } else if (r <= 88) {
-        // Penalty event
-        resolveAndNarratePenalty(state);
-    } else {
-        // Card check
-        resolveAndNarrateCard(state);
+    if (startRoll <= 10) { resolveAndNarrateScrum(state); return; }
+    if (startRoll <= 18) { resolveAndNarrateLineout(state); return; }
+
+    // Open play — 2-5 phases building
+    const numPhases = 2 + roll(3);
+    for (let ph = 0; ph < numPhases; ph++) {
+        const ruck = resolveRuck(state);
+        if (ruck.type === "turnover") {
+            const j = pick(getForwards(def).filter(p => p.jackling > 60)) || pick(getForwards(def));
+            addComm(state, comm("ruck_turnover", { def:def.name, jackal:j?.name||"A defender" }), "turnover");
+            showPitchAnimation(state, "turnover");
+            swapPossession(state); shiftMomentum(state, state.possession, 12); return;
+        }
+        if (ruck.type === "penalty") {
+            if (ruck.side === "atk") { addComm(state, comm("ruck_penalty_atk",{atk:atk.name,def:def.name})); handlePenaltyDecision(state); }
+            else { addComm(state, comm("ruck_penalty_def",{atk:atk.name,def:def.name})); swapPossession(state); handlePenaltyDecision(state); }
+            return;
+        }
+        const speed = ruck.speed;
+        if (ph === 0) {
+            if (speed === "slow") addComm(state, comm("ruck_slow",{atk:atk.name}));
+            else if (speed === "lightning") addComm(state, comm("ruck_fast",{atk:atk.name}));
+        }
+
+        // Kick decision
+        const kickChance = clamp(10 + getTacticVal(atk,"kick_chance") + (state.zone<=1?15:-5), 3, 30);
+        if (chance(kickChance)) { resolveAndNarrateKick(state); return; }
+
+        // Card check (very rare)
+        if (chance(2.5)) {
+            const dT = defTeam(state), tK = state.possession==="home"?"away":"home";
+            const card = checkCard(state, dT, true);
+            if (card) {
+                const off = pick(getXV(dT));
+                if (off) {
+                    if (card==="yellow") { off.yellowCard=true; off.onField=false; state.sinBin.push({team:tK,player:off,returnMin:state.minute+10}); addComm(state,comm("yellow_card",{player:off.name,team:dT.name}),"yellow_card"); showPitchAnimation(state,"card",{card:"yellow",player:off.name}); shiftMomentum(state,state.possession,15); }
+                    else { off.redCard=true; off.onField=false; addComm(state,comm("red_card",{player:off.name,team:dT.name}),"red_card"); showPitchAnimation(state,"card",{card:"red",player:off.name}); shiftMomentum(state,state.possession,25); }
+                    handlePenaltyDecision(state); return;
+                }
+            }
+        }
+
+        // Backline move on quick ball
+        if ((speed==="quick"||speed==="lightning") && chance(48 + getTacticVal(atk,"wide_attack"))) {
+            const bl = resolveBacklineMove(state);
+            if (bl.type === "line_break") {
+                addComm(state, comm("backline_break",{runner:bl.runner.name,atk:atk.name}));
+                if (state.zone<4) state.zone++;
+                shiftMomentum(state,state.possession,10);
+                if (state.zone>=4 && chance(50+momentumMod(state))) { scoreTry(state,bl.runner); showPitchAnimation(state,"try"); return; }
+                if (state.zone>=3 && chance(22+momentumMod(state))) { scoreTry(state,bl.runner); showPitchAnimation(state,"try"); return; }
+            } else if (bl.type === "gain") {
+                addComm(state, comm("backline_gain",{atk:atk.name}));
+                if (state.zone<4 && chance(45)) state.zone++;
+                shiftMomentum(state,state.possession,4);
+            } else {
+                addComm(state, comm("backline_no_gain",{atk:atk.name,def:def.name}));
+            }
+        } else {
+            // Forward carry
+            const c = pick(getForwards(atk));
+            const gr = roll(100);
+            let out, gained = false;
+            if (gr>70) { out="drives forward powerfully"; gained=true; }
+            else if (gr>40) { out="makes a few metres"; gained=chance(40); }
+            else if (gr>15) { out="is tackled but recycles"; }
+            else { out="is stopped dead by a huge hit"; }
+            addComm(state, comm("phase",{carrier:c?.name||"A forward",atk:atk.name,outcome:out}));
+            if (gained && state.zone<4) state.zone++;
+            shiftMomentum(state,state.possession,gained?3:1);
+            if (state.zone>=4 && ph>=2 && chance(16+momentumMod(state)+ph*4)) {
+                scoreTry(state, chance(55)?c:pick(getXV(atk)));
+                showPitchAnimation(state,"try"); return;
+            }
+        }
     }
 }
 
-// ── Narrative wrappers ──
-
 function resolveAndNarrateScrum(state) {
-    const atk = atkTeam(state), def = defTeam(state);
-    const result = resolveScrum(state);
-    const vars = { atk: atk.name, def: def.name };
-    switch (result) {
-        case "dominant_drive":
-            addComm(state, comm("scrum_dominant", vars));
-            if (state.zone < 4) state.zone++;
-            shiftMomentum(state, state.possession, 12);
-            break;
-        case "clean_ball":
-            addComm(state, comm("scrum_clean", vars));
-            calcRuckSpeed(atk, state);
-            break;
-        case "penalty_won":
-            addComm(state, comm("scrum_penalty_won", vars));
-            handlePenaltyDecision(state);
-            break;
-        case "penalty_conceded":
-            addComm(state, comm("scrum_penalty_conceded", vars));
-            swapPossession(state);
-            handlePenaltyDecision(state);
-            break;
-        case "turnover":
-            addComm(state, comm("scrum_turnover", vars), "turnover");
-            swapPossession(state);
-            shiftMomentum(state, state.possession, 10);
-            break;
-    }
+    const atk=atkTeam(state),def=defTeam(state),result=resolveScrum(state),v={atk:atk.name,def:def.name};
+    if (result==="dominant_drive") { addComm(state,comm("scrum_dominant",v)); if(state.zone<4)state.zone++; shiftMomentum(state,state.possession,12);
+        if(state.zone>=4&&chance(18)){scoreTry(state,pick(getForwards(atk)));showPitchAnimation(state,"try");} }
+    else if (result==="clean_ball") { addComm(state,comm("scrum_clean",v)); calcRuckSpeed(atk,state); }
+    else if (result==="penalty_won") { addComm(state,comm("scrum_penalty_won",v)); handlePenaltyDecision(state); }
+    else if (result==="penalty_conceded") { addComm(state,comm("scrum_penalty_conceded",v)); swapPossession(state); handlePenaltyDecision(state); }
+    else if (result==="turnover") { addComm(state,comm("scrum_turnover",v),"turnover"); showPitchAnimation(state,"turnover"); swapPossession(state); shiftMomentum(state,state.possession,10); }
 }
 
 function resolveAndNarrateLineout(state) {
-    const atk = atkTeam(state), def = defTeam(state);
-    const hooker = getByPos(atk, "HK");
-    const result = resolveLineout(state);
-    const vars = { atk: atk.name, def: def.name, hooker: hooker?.name || "The hooker" };
-    switch (result) {
-        case "clean_catch":
-            addComm(state, comm("lineout_clean", vars));
-            calcRuckSpeed(atk, state);
-            break;
-        case "drive_setup":
-            addComm(state, comm("lineout_drive", vars));
-            resolveAndNarrateMaul(state);
-            break;
-        case "steal":
-            addComm(state, comm("lineout_steal", vars), "turnover");
-            swapPossession(state);
-            shiftMomentum(state, state.possession, 10);
-            break;
-        case "overthrow":
-            addComm(state, comm("lineout_overthrow", vars));
-            swapPossession(state);
-            break;
-    }
+    const atk=atkTeam(state),def=defTeam(state),hk=getByPos(atk,"HK"),result=resolveLineout(state),v={atk:atk.name,def:def.name,hooker:hk?.name||"The hooker"};
+    if (result==="clean_catch") { addComm(state,comm("lineout_clean",v)); calcRuckSpeed(atk,state); }
+    else if (result==="drive_setup") { addComm(state,comm("lineout_drive",v)); resolveAndNarrateMaul(state); }
+    else if (result==="steal") { addComm(state,comm("lineout_steal",v),"turnover"); showPitchAnimation(state,"turnover"); swapPossession(state); shiftMomentum(state,state.possession,10); }
+    else if (result==="overthrow") { addComm(state,comm("lineout_overthrow",v)); swapPossession(state); }
 }
 
 function resolveAndNarrateMaul(state) {
-    const atk = atkTeam(state), def = defTeam(state);
-    const result = resolveMaul(state);
-    const vars = { atk: atk.name, def: def.name };
-    switch (result) {
-        case "maul_try":
-            addComm(state, comm("maul_try", vars), "try");
-            scoreTry(state, pick(getForwards(atk)));
-            break;
-        case "metres_gained":
-            addComm(state, comm("maul_gain", vars));
-            if (state.zone < 4) state.zone++;
-            shiftMomentum(state, state.possession, 6);
-            break;
-        case "penalty_won":
-            addComm(state, comm("maul_penalty_won", vars));
-            handlePenaltyDecision(state);
-            break;
-        case "penalty_conceded":
-            addComm(state, comm("maul_penalty_conceded", vars));
-            swapPossession(state);
-            handlePenaltyDecision(state);
-            break;
-        case "held_up":
-            addComm(state, comm("maul_held", vars));
-            break;
-    }
+    const atk=atkTeam(state),def=defTeam(state),result=resolveMaul(state),v={atk:atk.name,def:def.name};
+    if (result==="maul_try") { addComm(state,comm("maul_try",v),"try"); scoreTry(state,pick(getForwards(atk))); showPitchAnimation(state,"try"); }
+    else if (result==="metres_gained") { addComm(state,comm("maul_gain",v)); if(state.zone<4)state.zone++; shiftMomentum(state,state.possession,6); }
+    else if (result==="penalty_won") { addComm(state,comm("maul_penalty_won",v)); handlePenaltyDecision(state); }
+    else if (result==="penalty_conceded") { addComm(state,comm("maul_penalty_conceded",v)); swapPossession(state); handlePenaltyDecision(state); }
+    else { addComm(state,comm("maul_held",v)); }
 }
 
 function resolveAndNarrateKick(state) {
-    const atk = atkTeam(state), def = defTeam(state);
-    const types = ["territorial", "box", "garryowen", "grubber", "chip"];
-    const type = state.zone <= 1 ? "territorial" : pick(types);
-    const result = resolveKick(state, type);
-    const vars = { atk: atk.name, def: def.name, kicker: result.kicker?.name || "The kicker" };
-    if (result.outcome === "good") {
-        addComm(state, comm("kick_good", vars));
-        swapPossession(state);
-        for (let i = 0; i < result.territory; i++) if (state.zone > 0) state.zone--;
-    } else if (result.outcome === "ok") {
-        addComm(state, comm("kick_ok", vars));
-        swapPossession(state);
-        if (state.zone > 0) state.zone--;
-    } else {
-        addComm(state, comm("kick_poor", vars));
-        swapPossession(state);
-        if (state.zone < 4) state.zone++;
-    }
-}
-
-function resolveAndNarratePhase(state) {
-    const atk = atkTeam(state), def = defTeam(state);
-    // First resolve ruck
-    const ruck = resolveRuck(state);
-    if (ruck.type === "turnover") {
-        const jackal = pick(getForwards(def).filter(p => p.jackling > 60)) || pick(getForwards(def));
-        addComm(state, comm("ruck_turnover", { def: def.name, jackal: jackal?.name || "A defender" }), "turnover");
-        swapPossession(state);
-        shiftMomentum(state, state.possession, 12);
-        return;
-    }
-    if (ruck.type === "penalty") {
-        if (ruck.side === "atk") {
-            addComm(state, comm("ruck_penalty_atk", { atk: atk.name, def: def.name }));
-            handlePenaltyDecision(state);
-        } else {
-            addComm(state, comm("ruck_penalty_def", { atk: atk.name, def: def.name }));
-            swapPossession(state);
-            handlePenaltyDecision(state);
-        }
-        return;
-    }
-
-    // Ruck resolved — now phase play
-    const speed = ruck.speed;
-    if (speed === "slow") addComm(state, comm("ruck_slow", { atk: atk.name }));
-    else if (speed === "lightning" || speed === "quick") addComm(state, comm("ruck_fast", { atk: atk.name }));
-
-    // Backline move on quick ball, otherwise forward carry
-    if ((speed === "quick" || speed === "lightning") && chance(55 + getTacticVal(atk, "wide_attack"))) {
-        const blResult = resolveBacklineMove(state);
-        if (blResult.type === "line_break") {
-            addComm(state, comm("backline_break", { runner: blResult.runner.name, atk: atk.name }));
-            if (state.zone < 4) state.zone++;
-            shiftMomentum(state, state.possession, 10);
-            if (state.zone >= 4 && chance(45 + momentumMod(state))) {
-                // Try!
-                scoreTry(state, blResult.runner);
-            }
-        } else if (blResult.type === "gain") {
-            addComm(state, comm("backline_gain", { atk: atk.name }));
-            if (state.zone < 4 && chance(40)) state.zone++;
-            shiftMomentum(state, state.possession, 4);
-        } else {
-            addComm(state, comm("backline_no_gain", { atk: atk.name, def: def.name }));
-        }
-    } else {
-        // Forward carry
-        const carrier = pick(getForwards(atk));
-        const outcomes = ["makes a few metres", "is tackled but recycles", "drives forward", "is stopped at the gainline"];
-        const outcome = pick(outcomes);
-        addComm(state, comm("phase", { carrier: carrier?.name || "The ball carrier", atk: atk.name, outcome }));
-        if (outcome.includes("drives") && state.zone < 4) state.zone++;
-        shiftMomentum(state, state.possession, 2);
-        // Try chance in opposition 22
-        if (state.zone >= 4 && chance(12 + momentumMod(state))) {
-            scoreTry(state, carrier);
-        }
-    }
-}
-
-function resolveAndNarrateCard(state) {
-    const def = defTeam(state);
-    const teamKey = state.possession === "home" ? "away" : "home";
-    const card = checkCard(state, def, true);
-    if (!card) {
-        // No card, just a penalty
-        resolveAndNarratePenalty(state);
-        return;
-    }
-    const offender = pick(getXV(def));
-    if (!offender) return;
-    if (card === "yellow") {
-        offender.yellowCard = true;
-        offender.onField = false; // Sin bin removes from field
-        state.sinBin.push({ team: teamKey, player: offender, returnMin: state.minute + 10 });
-        addComm(state, comm("yellow_card", { player: offender.name, team: def.name }), "yellow_card");
-        shiftMomentum(state, state.possession, 15);
-    } else {
-        offender.redCard = true;
-        offender.onField = false;
-        addComm(state, comm("red_card", { player: offender.name, team: def.name }), "red_card");
-        shiftMomentum(state, state.possession, 25);
-    }
-    // Penalty comes with card
-    handlePenaltyDecision(state);
-}
-
-function resolveAndNarratePenalty(state) {
-    const atk = atkTeam(state), def = defTeam(state);
-    addComm(state, `Penalty to ${atk.name}!`);
-    handlePenaltyDecision(state);
+    const atk=atkTeam(state),def=defTeam(state);
+    const types=["territorial","box","garryowen","grubber","chip"];
+    const type=state.zone<=1?"territorial":pick(types);
+    const result=resolveKick(state,type);
+    const v={atk:atk.name,def:def.name,kicker:result.kicker?.name||"The kicker"};
+    if(result.outcome==="good"){addComm(state,comm("kick_good",v));swapPossession(state);for(let i=0;i<result.territory;i++)if(state.zone>0)state.zone--;}
+    else if(result.outcome==="ok"){addComm(state,comm("kick_ok",v));swapPossession(state);if(state.zone>0)state.zone--;}
+    else{addComm(state,comm("kick_poor",v));swapPossession(state);if(state.zone<4)state.zone++;}
 }
 
 function handlePenaltyDecision(state) {
-    const atk = atkTeam(state);
-    const kicker = getKicker(atk);
-    if (!kicker) return;
-    // Decision: kick at goal if in range (zone >= 2), else kick for touch
-    if (state.zone >= 2 && kicker.goal_kicking > 55) {
-        if (resolvePenaltyKick(state, atk, state.zone)) {
-            addComm(state, comm("penalty_goal", { kicker: kicker.name, atk: atk.name }), "penalty_goal");
-            if (state.possession === "home") state.homeScore += 3; else state.awayScore += 3;
-            shiftMomentum(state, state.possession, 8);
-            swapPossession(state);
-            state.zone = 2;
-        } else {
-            addComm(state, comm("penalty_missed", { kicker: kicker.name }));
-            swapPossession(state);
-            state.zone = 1;
-        }
+    const atk=atkTeam(state),kicker=getKicker(atk);
+    if(!kicker) return;
+    // Only kick at goal from zones 3-4 with good kicker, or zone 2 with elite kicker
+    if(state.zone>=3 && kicker.goal_kicking>65){
+        if(resolvePenaltyKick(state,atk,state.zone)){
+            addComm(state,comm("penalty_goal",{kicker:kicker.name,atk:atk.name}),"penalty_goal");
+            showPitchAnimation(state,"penalty_goal");
+            if(state.possession==="home")state.homeScore+=3;else state.awayScore+=3;
+            shiftMomentum(state,state.possession,8);swapPossession(state);state.zone=2;
+        } else { addComm(state,comm("penalty_missed",{kicker:kicker.name}));swapPossession(state);state.zone=1; }
+    } else if(state.zone>=2 && kicker.goal_kicking>82){
+        if(resolvePenaltyKick(state,atk,state.zone)){
+            addComm(state,comm("penalty_goal",{kicker:kicker.name,atk:atk.name}),"penalty_goal");
+            showPitchAnimation(state,"penalty_goal");
+            if(state.possession==="home")state.homeScore+=3;else state.awayScore+=3;
+            shiftMomentum(state,state.possession,8);swapPossession(state);state.zone=2;
+        } else { addComm(state,comm("penalty_missed",{kicker:kicker.name}));swapPossession(state);state.zone=1; }
     } else {
-        addComm(state, comm("penalty_touch", { atk: atk.name, def: defTeam(state).name }));
-        state.zone = Math.min(4, state.zone + 2);
+        addComm(state,comm("penalty_touch",{atk:atk.name,def:defTeam(state).name}));
+        state.zone=Math.min(4,state.zone+2);
     }
 }
 
-function scoreTry(state, scorer) {
-    const atk = atkTeam(state);
-    addComm(state, comm("try_scored", { scorer: scorer?.name || "A player", atk: atk.name }), "try");
-    if (state.possession === "home") { state.homeScore += 5; state.homeTries++; }
-    else { state.awayScore += 5; state.awayTries++; }
-    shiftMomentum(state, state.possession, 15);
-    // Conversion
-    if (resolveConversion(state, atk)) {
-        const kicker = getKicker(atk);
-        addComm(state, comm("conversion_good", { kicker: kicker?.name || "The kicker" }), "conversion");
-        if (state.possession === "home") state.homeScore += 2; else state.awayScore += 2;
-    } else {
-        addComm(state, comm("conversion_missed", { kicker: getKicker(atk)?.name || "The kicker" }));
-    }
-    // Reset after try
-    swapPossession(state);
-    state.zone = 2;
+function scoreTry(state,scorer) {
+    const atk=atkTeam(state);
+    addComm(state,comm("try_scored",{scorer:scorer?.name||"A player",atk:atk.name}),"try");
+    if(state.possession==="home"){state.homeScore+=5;state.homeTries++;}else{state.awayScore+=5;state.awayTries++;}
+    shiftMomentum(state,state.possession,15);
+    if(resolveConversion(state,atk)){
+        const k=getKicker(atk);addComm(state,comm("conversion_good",{kicker:k?.name||"The kicker"}),"conversion");
+        if(state.possession==="home")state.homeScore+=2;else state.awayScore+=2;
+    } else { addComm(state,comm("conversion_missed",{kicker:getKicker(atk)?.name||"The kicker"})); }
+    swapPossession(state);state.zone=2;
 }
 
-function swapPossession(state) {
-    state.possession = state.possession === "home" ? "away" : "home";
-    state.zone = 4 - state.zone;
-}
+function swapPossession(state) { state.possession=state.possession==="home"?"away":"home"; state.zone=4-state.zone; }
 
 </script>
 </body>
