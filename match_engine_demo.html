@@ -34,7 +34,7 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text1);
 .main { display:grid; grid-template-columns:1fr 280px; height:calc(100vh - 53px); }
 
 /* ── Commentary Panel ── */
-.commentary-panel { overflow-y:auto; padding:16px 20px; display:flex; flex-direction:column; gap:4px; }
+.commentary-panel { overflow-y:auto; padding:16px 20px; display:flex; flex-direction:column; gap:4px; position:relative; }
 .comm-line { padding:6px 10px; border-radius:6px; font-size:0.8em; line-height:1.5; border-left:3px solid transparent; animation:fadeIn 0.3s; }
 @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
 .comm-line .min { color:var(--accent); font-weight:700; margin-right:6px; }
@@ -48,10 +48,22 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text1);
 .comm-line.event-half { background:var(--bg3); text-align:center; font-weight:700; border-left-color:var(--text3); }
 .comm-line.event-kickoff { color:var(--text2); }
 
-/* ── Pitch Animation ── */
-.pitch-anim { display:none; margin:8px 0; border-radius:8px; overflow:hidden; background:#132a13; border:1px solid #2a4a2a; }
-.pitch-anim.active { display:block; animation:fadeIn 0.3s; }
-.pitch-anim svg { display:block; width:100%; height:140px; }
+/* ── Pitch Overlay Visualiser ── */
+.pitch-overlay {
+    position:absolute; inset:0; z-index:20;
+    background:rgba(6,10,15,0.92); display:none;
+    align-items:center; justify-content:center;
+    flex-direction:column; gap:8px;
+}
+.pitch-overlay.active { display:flex; animation:pitchIn 0.4s ease-out; }
+@keyframes pitchIn { from{opacity:0;transform:scale(0.95)} to{opacity:1;transform:scale(1)} }
+.pitch-overlay.fading { animation:pitchOut 0.5s ease-in forwards; }
+@keyframes pitchOut { to{opacity:0;transform:scale(0.97)} }
+.pitch-overlay svg { display:block; width:95%; max-width:700px; border-radius:10px; }
+.pitch-overlay .event-label {
+    font-size:0.8em; font-weight:700; color:var(--text2);
+    text-transform:uppercase; letter-spacing:2px;
+}
 
 /* ── Sidebar ── */
 .sidebar { background:var(--bg2); border-left:1px solid var(--border); padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:14px; }
@@ -121,7 +133,9 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text1);
         <span class="sb-clock"><span class="min" id="sb-clock">0'</span></span>
     </div>
     <div class="main">
-        <div class="commentary-panel" id="commentary"></div>
+        <div class="commentary-panel" id="commentary">
+            <div class="pitch-overlay" id="pitch-overlay"></div>
+        </div>
         <div class="sidebar">
             <div class="side-section">
                 <h3>Match Stats</h3>
@@ -616,52 +630,162 @@ function resumeMatch() {
 }
 
 // ── SVG Pitch Dot Animation ──
+// ── 30-dot pitch positions (attacking left to right) ──
+// Each position: [baseX, baseY] on a 700x320 viewBox
+const ATK_POS = {
+    LH:[110,90], HK:[110,160], TH:[110,230],
+    LK:[160,120], LK2:[160,200],
+    BF:[210,80], N8:[210,160], OF:[210,240],
+    SH:[280,160],
+    FH:[330,160],
+    LW:[400,40], IC:[400,130], OC:[400,200], RW:[400,280],
+    FB:[500,160]
+};
+const DEF_POS = {
+    FB:[600,160],
+    LW:[560,40], IC:[560,130], OC:[560,200], RW:[560,280],
+    FH:[520,160], SH:[510,100],
+    BF:[490,80], N8:[490,160], OF:[490,240],
+    LK:[470,120], LK2:[470,200],
+    LH:[450,90], HK:[450,160], TH:[450,230]
+};
+
+function dot(x, y, color, r, extra) { return `<circle cx="${x}" cy="${y}" r="${r||5}" fill="${color}" ${extra||""}/>`; }
+function animDot(x1,y1,x2,y2,color,r,dur,begin) {
+    return `<circle cx="${x1}" cy="${y1}" r="${r||5}" fill="${color}"><animate attributeName="cx" from="${x1}" to="${x2}" dur="${dur||'1.5s'}" begin="${begin||'0s'}" fill="freeze"/><animate attributeName="cy" from="${y1}" to="${y2}" dur="${dur||'1.5s'}" begin="${begin||'0s'}" fill="freeze"/></circle>`;
+}
+
+function renderAllDots(atkC, defC, atkMods, defMods) {
+    let svg = "";
+    const positions = ["LH","HK","TH","LK","LK2","BF","N8","OF","SH","FH","LW","IC","OC","RW","FB"];
+    // Attacking XV
+    for (const pos of positions) {
+        const [bx,by] = ATK_POS[pos];
+        const mod = atkMods?.[pos] || {};
+        const x = mod.x ?? bx, y = mod.y ?? by;
+        const r = mod.r || 5, opacity = mod.opacity ?? 0.45;
+        const extra = mod.animate || "";
+        svg += `<circle cx="${x}" cy="${y}" r="${r}" fill="${atkC}" opacity="${opacity}" ${extra}/>`;
+    }
+    // Defending XV
+    for (const pos of positions) {
+        const [bx,by] = DEF_POS[pos];
+        const mod = defMods?.[pos] || {};
+        const x = mod.x ?? bx, y = mod.y ?? by;
+        const r = mod.r || 5, opacity = mod.opacity ?? 0.35;
+        const extra = mod.animate || "";
+        svg += `<circle cx="${x}" cy="${y}" r="${r}" fill="${defC}" opacity="${opacity}" ${extra}/>`;
+    }
+    return svg;
+}
+
+function pitchBase() {
+    return `<rect width="700" height="320" fill="#132a13" rx="10"/>
+    <rect x="2" y="2" width="696" height="316" fill="none" stroke="#2a5a2a" stroke-width="1.5" rx="9"/>
+    <line x1="350" y1="0" x2="350" y2="320" stroke="white" stroke-width="0.5" opacity="0.1"/>
+    <line x1="120" y1="0" x2="120" y2="320" stroke="white" stroke-width="0.5" opacity="0.06" stroke-dasharray="6"/>
+    <line x1="580" y1="0" x2="580" y2="320" stroke="white" stroke-width="0.5" opacity="0.06" stroke-dasharray="6"/>
+    <line x1="30" y1="0" x2="30" y2="320" stroke="white" stroke-width="1" opacity="0.15"/>
+    <line x1="670" y1="0" x2="670" y2="320" stroke="white" stroke-width="1" opacity="0.15"/>
+    <rect x="0" y="130" width="20" height="60" fill="none" stroke="white" stroke-width="0.5" opacity="0.1" rx="2"/>
+    <rect x="680" y="130" width="20" height="60" fill="none" stroke="white" stroke-width="0.5" opacity="0.1" rx="2"/>`;
+}
+
+const ANIM_DURATION = 5000; // 5 seconds
+
 function showPitchAnimation(state, type, data) {
-    const panel = $("commentary");
-    const container = document.createElement("div");
-    container.className = "pitch-anim active";
+    const overlay = $("pitch-overlay");
     const atkC = state.possession === "home" ? (state.home.color||"#3b82f6") : (state.away.color||"#ef4444");
     const defC = state.possession === "home" ? (state.away.color||"#ef4444") : (state.home.color||"#3b82f6");
-    let dots = "";
+    let content = "";
+    let label = "";
 
     if (type === "try") {
-        dots += `<circle cx="60" cy="70" r="5" fill="${atkC}" opacity="0.4"/><circle cx="95" cy="45" r="5" fill="${atkC}" opacity="0.4"/>`;
-        dots += `<circle cx="130" cy="85" r="5" fill="${atkC}" opacity="0.4"/><circle cx="160" cy="55" r="5" fill="${atkC}" opacity="0.5"/>`;
-        dots += `<circle cx="220" cy="70" r="7" fill="${atkC}"><animate attributeName="cx" from="220" to="378" dur="1.4s" fill="freeze"/></circle>`;
-        dots += `<circle cx="220" cy="70" r="3" fill="white"><animate attributeName="cx" from="220" to="378" dur="1.4s" fill="freeze"/></circle>`;
-        dots += `<circle cx="290" cy="48" r="5" fill="${defC}" opacity="0.5"><animate attributeName="cx" from="290" to="345" dur="1.4s" fill="freeze"/></circle>`;
-        dots += `<circle cx="310" cy="92" r="5" fill="${defC}" opacity="0.5"><animate attributeName="cx" from="310" to="360" dur="1.4s" fill="freeze"/></circle>`;
-        dots += `<circle cx="378" cy="70" r="0" fill="${atkC}" opacity="0"><animate attributeName="r" from="0" to="20" dur="0.6s" begin="1.2s" fill="freeze"/><animate attributeName="opacity" from="0" to="0.35" dur="0.6s" begin="1.2s" fill="freeze"/></circle>`;
-        dots += `<line x1="388" y1="8" x2="388" y2="132" stroke="white" stroke-width="2" opacity="0.35"/>`;
-        dots += `<text x="200" y="22" fill="${atkC}" font-size="13" font-weight="800" text-anchor="middle" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="1.5s" fill="freeze"/>TRY!</text>`;
-    } else if (type === "turnover") {
-        dots += `<circle cx="200" cy="70" r="7" fill="${atkC}"/><circle cx="200" cy="70" r="3" fill="white"/>`;
-        dots += `<circle cx="215" cy="62" r="6" fill="${defC}"><animate attributeName="fill-opacity" from="0.4" to="1" dur="0.4s" repeatCount="3"/></circle>`;
-        dots += `<circle cx="208" cy="82" r="5" fill="${defC}" opacity="0.6"/>`;
-        dots += `<circle cx="200" cy="70" r="3" fill="white"><animate attributeName="cx" from="200" to="215" dur="0.6s" begin="0.4s" fill="freeze"/><animate attributeName="cy" from="70" to="62" dur="0.6s" begin="0.4s" fill="freeze"/></circle>`;
-        dots += `<text x="200" y="22" fill="${defC}" font-size="11" font-weight="700" text-anchor="middle" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.4s" begin="0.8s" fill="freeze"/>TURNOVER</text>`;
-    } else if (type === "card") {
-        const cc = data?.card === "red" ? "#ef4444" : "#eab308";
-        dots += `<rect x="186" y="32" width="28" height="40" rx="3" fill="${cc}" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.4s" fill="freeze"/></rect>`;
-        dots += `<circle cx="200" cy="100" r="6" fill="${defC}"/>`;
-        dots += `<text x="200" y="125" fill="${cc}" font-size="9" font-weight="700" text-anchor="middle">${data?.card?.toUpperCase()} CARD</text>`;
+        label = "TRY!";
+        // Ball carrier (winger) breaks wide and races to try line, support runners follow
+        // Defenders scramble across
+        const atkMods = {
+            RW: { x:400, y:280, r:7, opacity:1, animate:`><animate attributeName="cx" from="400" to="660" dur="2s" begin="1s" fill="freeze"/><animate attributeName="cy" from="280" to="240" dur="2s" begin="1s" fill="freeze"` },
+            OC: { x:380, y:200, opacity:0.7, animate:`><animate attributeName="cx" from="380" to="550" dur="2s" begin="1.2s" fill="freeze"/><animate attributeName="cy" from="200" to="260" dur="2s" begin="1.2s" fill="freeze"` },
+            IC: { x:360, y:130, opacity:0.6, animate:`><animate attributeName="cx" from="360" to="480" dur="1.8s" begin="1s" fill="freeze"` },
+            FH: { opacity:0.6, animate:`><animate attributeName="cx" from="330" to="400" dur="1.5s" begin="1s" fill="freeze"` },
+            SH: { opacity:0.5 }, FB: { opacity:0.5 },
+        };
+        const defMods = {
+            RW: { animate:`><animate attributeName="cx" from="560" to="620" dur="2s" begin="1s" fill="freeze"/><animate attributeName="cy" from="280" to="250" dur="2s" begin="1s" fill="freeze"` },
+            OC: { animate:`><animate attributeName="cx" from="560" to="630" dur="2s" begin="1s" fill="freeze"/><animate attributeName="cy" from="200" to="240" dur="2s" begin="1s" fill="freeze"` },
+            FB: { animate:`><animate attributeName="cx" from="600" to="650" dur="1.8s" begin="1.2s" fill="freeze"/><animate attributeName="cy" from="160" to="230" dur="1.8s" begin="1.2s" fill="freeze"` },
+        };
+        content = renderAllDots(atkC, defC, atkMods, defMods);
+        // Ball (white dot following carrier)
+        content += `<circle cx="400" cy="280" r="3" fill="white" opacity="0.9"><animate attributeName="cx" from="400" to="660" dur="2s" begin="1s" fill="freeze"/><animate attributeName="cy" from="280" to="240" dur="2s" begin="1s" fill="freeze"/></circle>`;
+        // Try line pulse
+        content += `<circle cx="660" cy="240" r="0" fill="${atkC}" opacity="0"><animate attributeName="r" from="0" to="30" dur="0.8s" begin="2.8s" fill="freeze"/><animate attributeName="opacity" from="0" to="0.3" dur="0.8s" begin="2.8s" fill="freeze"/></circle>`;
+        // TRY! text
+        content += `<text x="350" y="45" fill="${atkC}" font-size="28" font-weight="800" text-anchor="middle" font-family="Inter,sans-serif" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.4s" begin="3s" fill="freeze"/>TRY!</text>`;
+
+    } else if (type === "near_miss") {
+        label = "CLOSE CALL";
+        const atkMods = {
+            OC: { x:500, y:180, r:7, opacity:1, animate:`><animate attributeName="cx" from="500" to="640" dur="1.5s" begin="0.8s" fill="freeze"` },
+            IC: { opacity:0.6, animate:`><animate attributeName="cx" from="400" to="500" dur="1.5s" begin="0.8s" fill="freeze"` },
+        };
+        const defMods = {
+            FB: { r:6, opacity:0.8, animate:`><animate attributeName="cx" from="600" to="640" dur="1.2s" begin="1s" fill="freeze"/><animate attributeName="cy" from="160" to="180" dur="1.2s" begin="1s" fill="freeze"` },
+        };
+        content = renderAllDots(atkC, defC, atkMods, defMods);
+        content += `<circle cx="500" cy="180" r="3" fill="white"><animate attributeName="cx" from="500" to="640" dur="1.5s" begin="0.8s" fill="freeze"/></circle>`;
+        content += `<text x="350" y="45" fill="${defC}" font-size="22" font-weight="800" text-anchor="middle" font-family="Inter,sans-serif" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.4s" begin="2.5s" fill="freeze"/>HELD UP!</text>`;
+
     } else if (type === "penalty_goal") {
-        dots += `<line x1="196" y1="8" x2="196" y2="38" stroke="white" stroke-width="2" opacity="0.4"/>`;
-        dots += `<line x1="204" y1="8" x2="204" y2="38" stroke="white" stroke-width="2" opacity="0.4"/>`;
-        dots += `<line x1="191" y1="38" x2="209" y2="38" stroke="white" stroke-width="1.5" opacity="0.4"/>`;
-        dots += `<circle cx="200" cy="115" r="3" fill="white"><animate attributeName="cy" from="115" to="28" dur="1s" fill="freeze"/></circle>`;
-        dots += `<text x="200" y="22" fill="${atkC}" font-size="13" font-weight="800" text-anchor="middle" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="0.8s" fill="freeze"/>3 PTS</text>`;
+        label = "PENALTY KICK";
+        // All players spread, kicker lines up, ball arcs to posts
+        const atkMods = { FH: { x:350, y:200, r:7, opacity:1 } };
+        content = renderAllDots(atkC, defC, atkMods, {});
+        // Posts
+        content += `<line x1="680" y1="120" x2="680" y2="175" stroke="white" stroke-width="2.5" opacity="0.5"/>`;
+        content += `<line x1="695" y1="120" x2="695" y2="175" stroke="white" stroke-width="2.5" opacity="0.5"/>`;
+        content += `<line x1="677" y1="175" x2="698" y2="175" stroke="white" stroke-width="2" opacity="0.5"/>`;
+        // Ball arc
+        content += `<circle cx="350" cy="200" r="3" fill="white"><animate attributeName="cx" from="350" to="687" dur="2s" begin="1.5s" fill="freeze"/><animate attributeName="cy" from="200" to="145" dur="2s" begin="1.5s" fill="freeze"/></circle>`;
+        content += `<text x="350" y="40" fill="${atkC}" font-size="24" font-weight="800" text-anchor="middle" font-family="Inter,sans-serif" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="3.2s" fill="freeze"/>3 POINTS</text>`;
+
+    } else if (type === "conversion") {
+        label = "CONVERSION";
+        const atkMods = { FH: { x:400, y:200, r:7, opacity:1 } };
+        content = renderAllDots(atkC, defC, atkMods, {});
+        content += `<line x1="680" y1="120" x2="680" y2="175" stroke="white" stroke-width="2.5" opacity="0.5"/>`;
+        content += `<line x1="695" y1="120" x2="695" y2="175" stroke="white" stroke-width="2.5" opacity="0.5"/>`;
+        content += `<line x1="677" y1="175" x2="698" y2="175" stroke="white" stroke-width="2" opacity="0.5"/>`;
+        content += `<circle cx="400" cy="200" r="3" fill="white"><animate attributeName="cx" from="400" to="687" dur="1.8s" begin="1.2s" fill="freeze"/><animate attributeName="cy" from="200" to="145" dur="1.8s" begin="1.2s" fill="freeze"/></circle>`;
+
+    } else if (type === "card") {
+        label = (data?.card === "red" ? "RED" : "YELLOW") + " CARD";
+        const cc = data?.card === "red" ? "#ef4444" : "#eab308";
+        content = renderAllDots(atkC, defC, {}, {});
+        // Card appears centre pitch
+        content += `<rect x="330" y="90" width="40" height="58" rx="4" fill="${cc}" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.6s" begin="0.5s" fill="freeze"/></rect>`;
+        content += `<text x="350" y="180" fill="${cc}" font-size="14" font-weight="700" text-anchor="middle" font-family="Inter,sans-serif" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.4s" begin="1.2s" fill="freeze"/>${data?.player || ""}</text>`;
+        content += `<text x="350" y="40" fill="${cc}" font-size="20" font-weight="800" text-anchor="middle" font-family="Inter,sans-serif" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.4s" begin="1.5s" fill="freeze"/>${label}</text>`;
+
+    } else if (type === "turnover") {
+        label = "TURNOVER";
+        const atkMods = { OF: { x:350, y:160, r:7, opacity:1 } };
+        const defMods = { OF: { x:360, y:150, r:7, opacity:0.9, animate:`><animate attributeName="fill-opacity" from="0.5" to="1" dur="0.3s" repeatCount="4"` } };
+        content = renderAllDots(atkC, defC, atkMods, defMods);
+        content += `<circle cx="350" cy="160" r="3" fill="white"><animate attributeName="cx" from="350" to="360" dur="0.8s" begin="1.5s" fill="freeze"/><animate attributeName="cy" from="160" to="150" dur="0.8s" begin="1.5s" fill="freeze"/></circle>`;
+        content += `<text x="350" y="40" fill="${defC}" font-size="22" font-weight="800" text-anchor="middle" font-family="Inter,sans-serif" opacity="0"><animate attributeName="opacity" from="0" to="1" dur="0.4s" begin="2.2s" fill="freeze"/>TURNOVER</text>`;
     }
 
-    container.innerHTML = `<svg viewBox="0 0 400 140" xmlns="http://www.w3.org/2000/svg">
-        <rect width="400" height="140" fill="#132a13" rx="8"/>
-        <line x1="200" y1="0" x2="200" y2="140" stroke="white" stroke-width="0.5" opacity="0.1"/>
-        <line x1="100" y1="0" x2="100" y2="140" stroke="white" stroke-width="0.5" opacity="0.07" stroke-dasharray="4"/>
-        <line x1="300" y1="0" x2="300" y2="140" stroke="white" stroke-width="0.5" opacity="0.07" stroke-dasharray="4"/>
-        ${dots}</svg>`;
-    panel.appendChild(container);
-    panel.scrollTop = panel.scrollHeight;
-    setTimeout(() => { container.classList.remove("active"); setTimeout(() => container.remove(), 400); }, 3500);
+    const svg = `<svg viewBox="0 0 700 320" xmlns="http://www.w3.org/2000/svg">${pitchBase()}${content}</svg>`;
+    overlay.innerHTML = `<div class="event-label">${label}</div>${svg}`;
+    overlay.classList.remove("fading");
+    overlay.classList.add("active");
+
+    setTimeout(() => {
+        overlay.classList.add("fading");
+        setTimeout(() => { overlay.classList.remove("active","fading"); overlay.innerHTML = ""; }, 500);
+    }, ANIM_DURATION);
 }
 
 function runMinute(state) {
@@ -770,8 +894,9 @@ function simulatePassage(state) {
                 addComm(state, comm("backline_break",{runner:bl.runner.name,atk:atk.name}));
                 if (state.zone<4) state.zone++;
                 shiftMomentum(state,state.possession,10);
-                if (state.zone>=4 && chance(50+momentumMod(state))) { scoreTry(state,bl.runner); showPitchAnimation(state,"try"); return; }
-                if (state.zone>=3 && chance(22+momentumMod(state))) { scoreTry(state,bl.runner); showPitchAnimation(state,"try"); return; }
+                if (state.zone>=4 && chance(50+momentumMod(state))) { scoreTry(state,bl.runner); return; }
+                else if (state.zone>=4) { addComm(state,`${bl.runner.name} is tackled just short of the line! So close for ${atk.name}!`); showPitchAnimation(state,"near_miss"); return; }
+                if (state.zone>=3 && chance(22+momentumMod(state))) { scoreTry(state,bl.runner); return; }
             } else if (bl.type === "gain") {
                 addComm(state, comm("backline_gain",{atk:atk.name}));
                 if (state.zone<4 && chance(45)) state.zone++;
@@ -792,8 +917,7 @@ function simulatePassage(state) {
             if (gained && state.zone<4) state.zone++;
             shiftMomentum(state,state.possession,gained?3:1);
             if (state.zone>=4 && ph>=2 && chance(16+momentumMod(state)+ph*4)) {
-                scoreTry(state, chance(55)?c:pick(getXV(atk)));
-                showPitchAnimation(state,"try"); return;
+                scoreTry(state, chance(55)?c:pick(getXV(atk))); return;
             }
         }
     }
@@ -802,7 +926,7 @@ function simulatePassage(state) {
 function resolveAndNarrateScrum(state) {
     const atk=atkTeam(state),def=defTeam(state),result=resolveScrum(state),v={atk:atk.name,def:def.name};
     if (result==="dominant_drive") { addComm(state,comm("scrum_dominant",v)); if(state.zone<4)state.zone++; shiftMomentum(state,state.possession,12);
-        if(state.zone>=4&&chance(18)){scoreTry(state,pick(getForwards(atk)));showPitchAnimation(state,"try");} }
+        if(state.zone>=4&&chance(18)){scoreTry(state,pick(getForwards(atk)));} }
     else if (result==="clean_ball") { addComm(state,comm("scrum_clean",v)); calcRuckSpeed(atk,state); }
     else if (result==="penalty_won") { addComm(state,comm("scrum_penalty_won",v)); handlePenaltyDecision(state); }
     else if (result==="penalty_conceded") { addComm(state,comm("scrum_penalty_conceded",v)); swapPossession(state); handlePenaltyDecision(state); }
@@ -864,6 +988,7 @@ function handlePenaltyDecision(state) {
 function scoreTry(state,scorer) {
     const atk=atkTeam(state);
     addComm(state,comm("try_scored",{scorer:scorer?.name||"A player",atk:atk.name}),"try");
+    showPitchAnimation(state,"try");
     if(state.possession==="home"){state.homeScore+=5;state.homeTries++;}else{state.awayScore+=5;state.awayTries++;}
     shiftMomentum(state,state.possession,15);
     if(resolveConversion(state,atk)){
