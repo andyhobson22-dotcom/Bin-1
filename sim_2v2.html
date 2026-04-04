@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2v2 Rugby Simulator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+:root{--bg:#0a0e13;--bg2:#12171e;--bg3:#1a2230;--text1:#f0f4f8;--text2:#94a3b8;--text3:#4a5568;--blue:#3b82f6;--red:#ef4444;--green:#22c55e;--yellow:#eab308;--border:#1e293b}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text1);height:100vh;display:flex;flex-direction:column}
+
+.header{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:1em;font-weight:700}
+.header .score{font-size:1.4em;font-weight:800}
+.header .info{font-size:0.75em;color:var(--text3)}
+
+.pitch-wrap{flex:1;display:flex;align-items:center;justify-content:center;background:#0d120d;position:relative;overflow:hidden}
+canvas{display:block;max-width:100%;max-height:100%}
+
+.event-label{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2.2em;font-weight:800;opacity:0;pointer-events:none;transition:opacity 0.3s;text-shadow:0 2px 20px rgba(0,0,0,0.8)}
+.event-label.show{opacity:1}
+
+.comm-area{background:var(--bg2);border-top:1px solid var(--border);height:160px;overflow-y:auto;padding:10px 16px;display:flex;flex-direction:column;gap:2px}
+.comm{font-size:0.76em;line-height:1.4;color:var(--text2);padding:2px 0}
+.comm b{color:var(--text1);font-weight:600}
+.comm.try{color:var(--green);font-weight:600}
+.comm.turnover{color:#f97316;font-weight:600}
+.comm.tackle{color:var(--yellow)}
+.comm.penalty{color:var(--yellow);font-weight:600}
+
+.controls{background:var(--bg2);border-top:1px solid var(--border);padding:8px 16px;display:flex;gap:10px;align-items:center;justify-content:center}
+.btn{padding:8px 20px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-family:inherit;font-size:0.85em;font-weight:600;cursor:pointer}
+.btn:hover{background:#2563eb}
+.btn.reset{background:var(--bg3)}
+.speed-label{font-size:0.72em;color:var(--text3)}
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div>
+        <h1>2v2 Rugby Simulator</h1>
+        <div class="info" id="state-info">Kickoff</div>
+    </div>
+    <div class="score" id="score">0 - 0</div>
+    <div class="info" id="zone-info">Zone: Midfield</div>
+</div>
+
+<div class="pitch-wrap">
+    <canvas id="pitch" width="800" height="400"></canvas>
+    <div class="event-label" id="flash"></div>
+</div>
+
+<div class="comm-area" id="comm"></div>
+
+<div class="controls">
+    <button class="btn" id="btn-start" onclick="startSim()">Start</button>
+    <button class="btn reset" onclick="resetSim()">Reset</button>
+    <span class="speed-label">Speed:</span>
+    <button class="btn reset" onclick="setSpeed(2000)">Slow</button>
+    <button class="btn reset" onclick="setSpeed(1000)">Normal</button>
+    <button class="btn reset" onclick="setSpeed(400)">Fast</button>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   2v2 RUGBY STATE MACHINE
+   
+   Architecture (CM-style):
+   
+   Each tick:
+     1. choose_ball_holder (who has it)
+     2. choose_action (carry / pass / kick) — weighted by stats
+     3. resolve_action (attacker stats vs defender stats + noise)
+     4. update_state (zone, possession, position)
+     5. move_dots (players lerp to new positions)
+     6. generate_commentary
+   
+   All outcomes trace to real stats. No hidden magic.
+   ═══════════════════════════════════════════════════════════════ */
+
+// ── Players ──
+// Using a subset of the 35 stats relevant to 2v2 open play
+const ATK1 = {
+    name: "Tom Curry", team: "blue", num: 7,
+    // Physical
+    pace: 74, acceleration: 78, agility: 68, strength: 82,
+    stopping_power: 78, explosiveness: 80,
+    // Mental  
+    awareness: 80, composure: 72, scanning: 78, running_lines: 68, discipline: 72,
+    // Technical
+    handling: 65, offload: 58, tackling: 92, stepping: 52,
+    short_passing: 55, rucking: 88,
+    // Position
+    x: 300, y: 200, tx: 300, ty: 200, hasBall: true
+};
+const ATK2 = {
+    name: "Arron Reed", team: "blue", num: 14,
+    pace: 92, acceleration: 90, agility: 85, strength: 45,
+    stopping_power: 32, explosiveness: 88,
+    awareness: 55, composure: 58, scanning: 48, running_lines: 62, discipline: 58,
+    handling: 62, offload: 42, tackling: 42, stepping: 82,
+    short_passing: 38, rucking: 18,
+    x: 300, y: 100, tx: 300, ty: 100, hasBall: false
+};
+const DEF1 = {
+    name: "Tommy Reffell", team: "red", num: 7,
+    pace: 68, acceleration: 65, agility: 58, strength: 68,
+    stopping_power: 62, explosiveness: 68,
+    awareness: 72, composure: 58, scanning: 72, running_lines: 48, discipline: 55,
+    handling: 52, offload: 45, tackling: 85, stepping: 38,
+    short_passing: 42, rucking: 82,
+    x: 500, y: 200, tx: 500, ty: 200, hasBall: false
+};
+const DEF2 = {
+    name: "Freddie Steward", team: "red", num: 15,
+    pace: 72, acceleration: 72, agility: 75, strength: 42,
+    stopping_power: 35, explosiveness: 70,
+    awareness: 78, composure: 75, scanning: 72, running_lines: 62, discipline: 68,
+    handling: 75, offload: 38, tackling: 65, stepping: 62,
+    short_passing: 55, rucking: 20,
+    x: 500, y: 100, tx: 500, ty: 100, hasBall: false
+};
+
+const attackers = [ATK1, ATK2];
+const defenders = [DEF1, DEF2];
+const allPlayers = [...attackers, ...defenders];
+
+// ── Match State ──
+let state = {
+    zone: 2,          // 0=own22, 1=ownHalf, 2=mid, 3=oppHalf, 4=opp22
+    possession: "atk", // "atk" or "def"
+    phase: "play",     // "play", "ruck", "tackle", "try", "turnover", "penalty"
+    blueScore: 0,
+    redScore: 0,
+    tick: 0,
+    running: false,
+    tickMs: 1000,
+};
+
+const ZONE_NAMES = ["Own 22","Own Half","Midfield","Opp Half","Opp 22"];
+const ZONE_X = [100, 250, 400, 550, 700]; // centre X per zone on canvas
+
+// ── Utility ──
+function roll(n) { return Math.floor(Math.random() * n) + 1; }
+function chance(p) { return Math.random() * 100 < p; }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+
+// ── Canvas ──
+const canvas = document.getElementById("pitch");
+const ctx = canvas.getContext("2d");
+
+function drawPitch() {
+    const W = canvas.width, H = canvas.height;
+    // Grass
+    ctx.fillStyle = "#132a13";
+    ctx.fillRect(0, 0, W, H);
+    // Border
+    ctx.strokeStyle = "#2a5a2a";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(10, 10, W-20, H-20);
+    // Try lines
+    ctx.strokeStyle = "rgba(255,255,255,0.3)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(50, 10); ctx.lineTo(50, H-10); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W-50, 10); ctx.lineTo(W-50, H-10); ctx.stroke();
+    // 22m lines
+    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(170, 10); ctx.lineTo(170, H-10); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W-170, 10); ctx.lineTo(W-170, H-10); ctx.stroke();
+    // Halfway
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(W/2, 10); ctx.lineTo(W/2, H-10); ctx.stroke();
+    // Zone label
+    ctx.fillStyle = "rgba(255,255,255,0.06)";
+    ctx.font = "11px Inter";
+    ctx.textAlign = "center";
+    for (let i = 0; i < 5; i++) {
+        ctx.fillText(ZONE_NAMES[i], ZONE_X[i], H - 18);
+    }
+}
+
+function drawPlayer(p) {
+    const isAtk = attackers.includes(p);
+    const color = p.team === "blue" ? "#3b82f6" : "#ef4444";
+    const r = 14;
+    // Shadow/glow if has ball
+    if (p.hasBall) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r + 6, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,255,255,0.08)";
+        ctx.fill();
+    }
+    // Player dot
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.globalAlpha = p.hasBall ? 1 : 0.7;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    // Number
+    ctx.fillStyle = "white";
+    ctx.font = "bold 10px Inter";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(p.num, p.x, p.y - 1);
+    // Name below
+    ctx.font = "9px Inter";
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.fillText(p.name.split(" ").pop(), p.x, p.y + r + 10);
+    // Ball
+    if (p.hasBall) {
+        ctx.beginPath();
+        ctx.arc(p.x + 10, p.y - 10, 4, 0, Math.PI * 2);
+        ctx.fillStyle = "white";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.4)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(p.x + 10, p.y - 10, 7, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+}
+
+function render() {
+    // Lerp positions
+    for (const p of allPlayers) {
+        p.x += (p.tx - p.x) * 0.08;
+        p.y += (p.ty - p.y) * 0.08;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawPitch();
+    for (const p of allPlayers) drawPlayer(p);
+    requestAnimationFrame(render);
+}
+
+// ── Commentary ──
+function addComm(text, cls) {
+    const el = document.createElement("div");
+    el.className = "comm" + (cls ? " " + cls : "");
+    el.innerHTML = text;
+    document.getElementById("comm").appendChild(el);
+    document.getElementById("comm").scrollTop = 99999;
+}
+
+function flash(text, color) {
+    const el = document.getElementById("flash");
+    el.textContent = text;
+    el.style.color = color || "white";
+    el.classList.add("show");
+    setTimeout(() => el.classList.remove("show"), 2000);
+}
+
+function updateUI() {
+    document.getElementById("score").textContent = `${state.blueScore} - ${state.redScore}`;
+    document.getElementById("zone-info").textContent = `Zone: ${ZONE_NAMES[state.zone]}`;
+    document.getElementById("state-info").textContent = `Tick ${state.tick} | ${state.phase}`;
+}
+
+// ── Position players based on state ──
+function positionPlayers() {
+    const zx = ZONE_X[state.zone];
+    const ballHolder = allPlayers.find(p => p.hasBall);
+    const atkTeam = state.possession === "atk" ? attackers : defenders;
+    const defTeam = state.possession === "atk" ? defenders : attackers;
+
+    // Ball holder goes to zone centre-ish
+    if (ballHolder) {
+        ballHolder.tx = zx + (Math.random() - 0.5) * 30;
+        ballHolder.ty = 200 + (Math.random() - 0.5) * 60;
+    }
+    // Support runner — offset behind and to one side
+    const support = atkTeam.find(p => !p.hasBall);
+    if (support) {
+        support.tx = (ballHolder ? ballHolder.tx : zx) - 40 + (Math.random() - 0.5) * 20;
+        support.ty = (ballHolder ? ballHolder.ty : 200) + (Math.random() > 0.5 ? 80 : -80) + (Math.random() - 0.5) * 20;
+    }
+    // Defenders — ahead of ball, spread
+    defTeam[0].tx = zx + 80 + (Math.random() - 0.5) * 30;
+    defTeam[0].ty = 160 + (Math.random() - 0.5) * 30;
+    defTeam[1].tx = zx + 80 + (Math.random() - 0.5) * 30;
+    defTeam[1].ty = 260 + (Math.random() - 0.5) * 30;
+}
+
+// ═══ THE ENGINE — CM-style state machine ═══
+
+function engineTick() {
+    if (!state.running) return;
+    state.tick++;
+
+    const atkTeam = state.possession === "atk" ? attackers : defenders;
+    const defTeam = state.possession === "atk" ? defenders : attackers;
+    const ballHolder = atkTeam.find(p => p.hasBall) || atkTeam[0];
+    const support = atkTeam.find(p => !p.hasBall);
+    const nearDef = defTeam.reduce((a, b) =>
+        Math.abs(a.ty - ballHolder.ty) < Math.abs(b.ty - ballHolder.ty) ? a : b
+    );
+    const coverDef = defTeam.find(p => p !== nearDef);
+
+    // ── 1. CHOOSE ACTION (weighted by stats) ──
+    const actionWeights = {
+        carry: ballHolder.strength * 0.3 + ballHolder.explosiveness * 0.3
+             + ballHolder.pace * 0.2 + ballHolder.stepping * 0.2,
+        pass:  ballHolder.short_passing * 0.4 + ballHolder.handling * 0.3
+             + ballHolder.awareness * 0.2 + ballHolder.composure * 0.1,
+        offload: ballHolder.offload * 0.5 + ballHolder.strength * 0.2
+               + ballHolder.composure * 0.3,
+    };
+    // Add noise
+    for (const k in actionWeights) actionWeights[k] += roll(20) - 10;
+
+    // Pick highest weighted action
+    const action = Object.entries(actionWeights).sort((a,b) => b[1] - a[1])[0][0];
+
+    // ── 2. RESOLVE ACTION ──
+    let outcome = "";
+
+    if (action === "carry") {
+        // Attacker tries to beat defender
+        const atkScore = ballHolder.pace * 0.2 + ballHolder.stepping * 0.25
+                       + ballHolder.agility * 0.2 + ballHolder.strength * 0.2
+                       + ballHolder.explosiveness * 0.15 + roll(25) - 12;
+
+        const defScore = nearDef.tackling * 0.35 + nearDef.stopping_power * 0.2
+                       + nearDef.agility * 0.15 + nearDef.awareness * 0.15
+                       + nearDef.pace * 0.15 + roll(25) - 12;
+
+        const diff = atkScore - defScore;
+
+        if (diff > 15) {
+            // Clean break!
+            outcome = "break";
+            addComm(`<b>${ballHolder.name}</b> beats <b>${nearDef.name}</b> with a devastating step! Clean break!`);
+            if (state.zone < 4) state.zone++;
+            // Move carrier forward past defender
+            ballHolder.tx = ZONE_X[state.zone] + 20;
+            nearDef.tx = ballHolder.tx - 60; // defender left behind
+            // Try chance near line
+            if (state.zone >= 4 && chance(55)) {
+                scoreTry(ballHolder);
+                return;
+            }
+        } else if (diff > 0) {
+            // Gain — tackled but makes ground
+            outcome = "gain";
+            addComm(`<b>${ballHolder.name}</b> carries into <b>${nearDef.name}</b> — makes a few metres before being brought down.`, "tackle");
+            if (state.zone < 4 && chance(40)) state.zone++;
+            // Ruck forms — ball stays with attacking team
+            ballHolder.tx = ZONE_X[state.zone];
+        } else if (diff > -12) {
+            // Stopped — dominant tackle
+            outcome = "stopped";
+            addComm(`<b>${nearDef.name}</b> smashes <b>${ballHolder.name}</b> in the tackle! Stopped dead.`, "tackle");
+            // Turnover chance from ruck
+            const jackalChance = nearDef.rucking * 0.3 + nearDef.tackling * 0.2 - ballHolder.rucking * 0.3 + roll(20) - 10;
+            if (jackalChance > 45) {
+                turnover(nearDef);
+                return;
+            }
+        } else {
+            // Massive hit — loss of ground or turnover
+            outcome = "smashed";
+            addComm(`HUGE HIT from <b>${nearDef.name}</b>! <b>${ballHolder.name}</b> is driven backwards!`, "tackle");
+            if (state.zone > 0) state.zone--;
+            if (chance(30)) {
+                turnover(nearDef);
+                return;
+            }
+        }
+    }
+    else if (action === "pass" || action === "offload") {
+        if (!support) {
+            addComm(`<b>${ballHolder.name}</b> looks for support but nobody's there!`);
+        } else {
+            // Pass/offload attempt
+            const passScore = ballHolder.short_passing * 0.3 + ballHolder.handling * 0.3
+                            + ballHolder.composure * 0.2 + ballHolder.awareness * 0.2 + roll(20) - 10;
+
+            const interceptScore = coverDef.awareness * 0.3 + coverDef.scanning * 0.25
+                                 + coverDef.pace * 0.2 + coverDef.agility * 0.15
+                                 + coverDef.handling * 0.1 + roll(20) - 10;
+
+            if (passScore > interceptScore + 10) {
+                // Clean pass — support runner gets the ball in space
+                ballHolder.hasBall = false;
+                support.hasBall = true;
+                const isOffload = action === "offload";
+                addComm(`<b>${ballHolder.name}</b> ${isOffload ? "offloads brilliantly" : "passes"} to <b>${support.name}</b>!`);
+
+                // Now support runner vs cover defender — 1v1
+                const runScore = support.pace * 0.3 + support.stepping * 0.25
+                               + support.acceleration * 0.25 + support.agility * 0.2 + roll(20) - 10;
+                const coverScore = coverDef.tackling * 0.3 + coverDef.pace * 0.2
+                                 + coverDef.awareness * 0.2 + coverDef.stopping_power * 0.15
+                                 + coverDef.agility * 0.15 + roll(20) - 10;
+
+                if (runScore > coverScore + 10) {
+                    addComm(`<b>${support.name}</b> burns past <b>${coverDef.name}</b>! Away!`);
+                    if (state.zone < 4) state.zone++;
+                    support.tx = ZONE_X[state.zone] + 30;
+                    if (state.zone >= 4 && chance(60)) {
+                        scoreTry(support);
+                        return;
+                    }
+                } else if (runScore > coverScore) {
+                    addComm(`<b>${support.name}</b> takes the pass and makes good ground.`);
+                    if (state.zone < 4 && chance(35)) state.zone++;
+                } else {
+                    addComm(`<b>${coverDef.name}</b> reads it and tackles <b>${support.name}</b> behind the gainline!`, "tackle");
+                }
+            } else if (passScore > interceptScore) {
+                // Messy pass — ball goes to ground
+                addComm(`<b>${ballHolder.name}</b>'s pass is loose! Scramble for the ball!`);
+                if (chance(40)) {
+                    turnover(pick(defTeam));
+                    return;
+                }
+            } else {
+                // Intercepted!
+                addComm(`INTERCEPTED by <b>${coverDef.name}</b>! Reads the pass perfectly!`, "turnover");
+                ballHolder.hasBall = false;
+                coverDef.hasBall = true;
+                state.possession = state.possession === "atk" ? "def" : "atk";
+                state.zone = 4 - state.zone;
+                flash("INTERCEPT!", "#f97316");
+                positionPlayers();
+                scheduleNext();
+                return;
+            }
+        }
+    }
+
+    // ── 3. Penalty check (rare) ──
+    if (chance(3)) {
+        const penaltyOn = pick(defTeam);
+        const penaltyChance = penaltyOn.discipline;
+        if (roll(100) > penaltyChance) {
+            addComm(`Penalty! <b>${penaltyOn.name}</b> infringes at the breakdown.`, "penalty");
+            if (state.zone < 4) state.zone = Math.min(4, state.zone + 1);
+        }
+    }
+
+    // ── 4. Update positions ──
+    positionPlayers();
+    updateUI();
+    scheduleNext();
+}
+
+function scoreTry(scorer) {
+    addComm(`<b>TRY!</b> <b>${scorer.name}</b> touches down!`, "try");
+    flash("TRY!", "#22c55e");
+    // Move scorer to try line
+    scorer.tx = 740;
+    if (state.possession === "atk") state.blueScore += 7; else state.redScore += 7;
+    updateUI();
+    // Reset
+    setTimeout(() => {
+        state.zone = 2;
+        resetBall();
+        positionPlayers();
+        updateUI();
+        scheduleNext();
+    }, 2500);
+}
+
+function turnover(winner) {
+    addComm(`<b>TURNOVER!</b> <b>${winner.name}</b> wins the ball at the breakdown!`, "turnover");
+    flash("TURNOVER", "#f97316");
+    // Switch possession
+    for (const p of allPlayers) p.hasBall = false;
+    winner.hasBall = true;
+    state.possession = state.possession === "atk" ? "def" : "atk";
+    state.zone = 4 - state.zone;
+    positionPlayers();
+    updateUI();
+    scheduleNext();
+}
+
+function resetBall() {
+    for (const p of allPlayers) p.hasBall = false;
+    // Alternate possession on restart
+    state.possession = state.possession === "atk" ? "def" : "atk";
+    const atkTeam = state.possession === "atk" ? attackers : defenders;
+    atkTeam[0].hasBall = true;
+}
+
+function scheduleNext() {
+    setTimeout(engineTick, state.tickMs);
+}
+
+function startSim() {
+    if (state.running) return;
+    state.running = true;
+    document.getElementById("btn-start").textContent = "Running...";
+    positionPlayers();
+    addComm("Kick off! <b>Curry</b> takes the ball for the blue team.");
+    scheduleNext();
+}
+
+function resetSim() {
+    state = { zone:2, possession:"atk", phase:"play", blueScore:0, redScore:0,
+              tick:0, running:false, tickMs:state.tickMs };
+    for (const p of allPlayers) { p.hasBall = false; p.tx = 400; p.ty = 200; }
+    ATK1.hasBall = true;
+    ATK1.tx = 300; ATK1.ty = 200; ATK2.tx = 300; ATK2.ty = 100;
+    DEF1.tx = 500; DEF1.ty = 200; DEF2.tx = 500; DEF2.ty = 100;
+    document.getElementById("comm").innerHTML = "";
+    document.getElementById("btn-start").textContent = "Start";
+    updateUI();
+}
+
+function setSpeed(ms) { state.tickMs = ms; }
+
+// ── Init ──
+ATK1.hasBall = true;
+render();
+updateUI();
+</script>
+</body>
+</html>
