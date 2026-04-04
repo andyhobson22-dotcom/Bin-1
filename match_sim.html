@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rugby Match Simulator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+:root {
+    --bg:#0a0e13; --bg2:#12171e; --bg3:#1a2230;
+    --text1:#f0f4f8; --text2:#94a3b8; --text3:#4a5568;
+    --accent:#3b82f6; --green:#22c55e; --yellow:#eab308; --red:#ef4444;
+    --border:#1e293b; --home:#3b82f6; --away:#ef4444;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text1);height:100vh;overflow:hidden}
+
+/* Scoreboard */
+.scoreboard{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:20px;padding:10px 24px;position:relative}
+.sb-team{font-weight:700;font-size:0.95em;min-width:160px}
+.sb-team.home{text-align:right;color:var(--home)}
+.sb-team.away{text-align:left;color:var(--away)}
+.sb-score{font-size:1.8em;font-weight:800;min-width:80px;text-align:center}
+.sb-clock{position:absolute;right:20px;font-weight:600;color:var(--text2)}
+.sb-clock .min{color:var(--text1)}
+.sb-phase{position:absolute;left:20px;font-size:0.72em;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:1px}
+
+/* Main layout */
+.main{height:calc(100vh - 48px);display:flex;flex-direction:column}
+
+/* Pitch — takes most of the screen */
+.pitch-area{flex:1;display:flex;align-items:center;justify-content:center;background:#0d120d;position:relative;overflow:hidden}
+.pitch-svg{width:95%;max-width:1100px;max-height:90%}
+
+/* Commentary strip at bottom */
+.comm-strip{background:var(--bg2);border-top:1px solid var(--border);padding:10px 20px;min-height:80px;max-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:3px}
+.comm-line{font-size:0.78em;color:var(--text2);line-height:1.4;padding:2px 0}
+.comm-line .min{color:var(--accent);font-weight:700;margin-right:6px}
+.comm-line.event-try{color:var(--green);font-weight:600}
+.comm-line.event-penalty_goal{color:var(--yellow);font-weight:600}
+.comm-line.event-turnover{color:#f97316;font-weight:600}
+.comm-line.event-card{color:var(--red);font-weight:600}
+.comm-line.event-half{color:var(--text1);font-weight:700;text-align:center}
+
+/* Event flash overlay on pitch */
+.event-flash{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2.5em;font-weight:800;opacity:0;pointer-events:none;text-shadow:0 0 30px rgba(0,0,0,0.8);transition:opacity 0.3s}
+.event-flash.active{opacity:1}
+.event-flash.try{color:var(--green)}
+.event-flash.penalty{color:var(--yellow)}
+.event-flash.card{color:var(--red)}
+.event-flash.turnover{color:#f97316}
+
+/* Start overlay */
+.start-overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:50}
+.start-overlay h1{font-size:1.8em;font-weight:800}
+.start-overlay p{color:var(--text2)}
+.btn{padding:12px 36px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:1em;font-weight:700;cursor:pointer}
+.btn:hover{background:#2563eb}
+
+/* Stats bar */
+.stats-bar{position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:16px;font-size:0.65em;color:var(--text3);font-weight:600;background:rgba(10,14,19,0.7);padding:4px 14px;border-radius:6px}
+.stats-bar span{display:flex;align-items:center;gap:4px}
+</style>
+</head>
+<body>
+
+<div class="start-overlay" id="start">
+    <h1>Rugby Match Simulator</h1>
+    <p>Sale Sharks vs Leicester Tigers</p>
+    <button class="btn" onclick="kickOff()">Kick Off</button>
+</div>
+
+<div class="scoreboard" id="scoreboard" style="display:none">
+    <span class="sb-phase" id="sb-phase">KICKOFF</span>
+    <span class="sb-team home">Sale Sharks</span>
+    <span class="sb-score" id="sb-score">0 - 0</span>
+    <span class="sb-team away">Leicester Tigers</span>
+    <span class="sb-clock"><span class="min" id="sb-clock">0'</span></span>
+</div>
+
+<div class="main" id="main-ui" style="display:none">
+    <div class="pitch-area">
+        <svg class="pitch-svg" id="pitch" viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="stats-bar" id="stats-bar">
+            <span>Poss: <b id="st-poss">50-50</b></span>
+            <span>Ruck: <b id="st-ruck">OK</b></span>
+            <span>Zone: <b id="st-zone">Midfield</b></span>
+        </div>
+        <div class="event-flash" id="event-flash"></div>
+    </div>
+    <div class="comm-strip" id="comm"></div>
+</div>
+
+<script>
+/* ═══ SQUAD DATA ═══ */
+function P(num,name,pos,o){return{num,name,pos,x:0,y:0,tx:0,ty:0,...o,fit:100,on:num<=15,yc:false,rc:false}}
+const B={sp:65,ld:65,ac:40,st:72,ex:45,pa:38,ag:35,agg:68,con:55,rl:30,ten:65,pos:50,com:50,aw:45,dis:55,sc:40,lp:25,hb:25,tk:65,ml:65,gr:10,bk:8,sp2:35,ha:40,ol:35,ru:65,jk:30,ch:8,stp:20,gk:8,sct:60,ju:40,sd:65,tf:15,li:55};
+function mp(base,o){const r={};for(const k in base)r[k]=base[k];for(const k in o)r[k]=o[k];return r}
+const HOME={name:"Sale Sharks",color:"#003B5C",
+squad:[
+P(1,"Rodd","LH",mp(B,{sd:78,sct:72,st:80,ld:75})),
+P(2,"Cowan-Dickie","HK",mp(B,{tk:72,sc:62,aw:60,ju:58,sd:68,ha:52})),
+P(3,"Schonert","TH",mp(B,{sd:82,sct:78,st:85,ld:80,sp:75})),
+P(4,"Hill","LK",mp(B,{ju:82,li:75,tk:68,ml:70,ld:60,st:70,ag:32,pa:36,ac:38})),
+P(5,"du Preez","LK",mp(B,{ju:78,st:78,ml:72,ru:68,tk:65,ol:45,ld:60,ag:32,pa:36,ac:38})),
+P(6,"B Curry","BF",mp(B,{tk:82,ru:78,ten:82,aw:68,st:72,ex:68,pa:65,ac:65,ag:58,agg:75,jk:65,stp:38})),
+P(7,"T Curry","OF",mp(B,{tk:92,jk:90,ten:92,ex:80,pa:74,aw:80,agg:85,ru:88,pos:82,sc:78,st:82,sp:78,ac:78,com:72,con:78,dis:72,rl:68,ha:65,ol:58,stp:52,hb:55,ml:68,ag:58})),
+P(8,"D du Preez","N8",mp(B,{st:78,tk:72,ha:60,ol:58,ru:72,ml:68,pa:58,ex:62,ac:58,ag:50,agg:70,rl:52,ten:72})),
+P(9,"Quirke","SH",mp(B,{pa:78,ac:82,stp:68,bk:68,sp2:78,sc:70,aw:68,ex:75,ag:78,ha:72,lp:75,con:68,rl:55,ten:65,pos:62,com:68,dis:65,tk:48})),
+P(10,"Ford","FH",mp(B,{gk:88,tf:85,lp:88,sp2:88,sc:85,aw:88,com:85,gr:78,ch:75,stp:62,dis:78,pa:60,ac:62,ag:68,ex:58,hb:55,tk:42,ha:72,pos:68,con:72,rl:62})),
+P(11,"Roebuck","LW",mp(B,{pa:88,ac:85,stp:75,hb:62,ha:68,tk:48,ex:80,ag:80,rl:62,pos:58,com:58,aw:55})),
+P(12,"James","IC",mp(B,{sp2:72,ha:68,tk:70,aw:68,com:65,stp:62,pa:68,ac:68,ag:68,ex:65,st:62,lp:52})),
+P(13,"R du Preez","OC",mp(B,{gk:72,lp:62,stp:68,pa:72,ha:65,ac:68,ag:68,ex:65,st:62,tk:65})),
+P(14,"Reed","RW",mp(B,{pa:92,ac:90,ag:85,stp:82,ex:88,ha:62,hb:58,tk:42,rl:62,pos:58})),
+P(15,"Carpenter","FB",mp(B,{hb:75,pa:78,ac:75,ha:72,pos:75,aw:72,tf:68,gk:58,ag:75,ex:70,com:72,sc:72,tk:52})),
+P(16,"Mayfield","HK",mp(B,{tk:65,sc:55,sd:62})),P(17,"McIntyre","LH",mp(B,{sd:72,st:75})),
+P(18,"A Mayfield","TH",mp(B,{sd:75,sct:70,st:78})),P(19,"Beaumont","LK",mp(B,{ju:72,tk:62})),
+P(20,"Sherlock","BF",mp(B,{tk:68,ru:65,ten:70})),P(21,"G Mayfield","SH",mp(B,{sp2:72,bk:65})),
+P(22,"L James","FH",mp(B,{gk:65,lp:68})),P(23,"Curtis","OC",mp(B,{pa:65,stp:60})),
+]};
+const AWAY={name:"Leicester Tigers",color:"#C8102E",
+squad:[
+P(1,"Genge","LH",mp(B,{sd:82,st:88,ld:80,sp:80,agg:82})),
+P(2,"Montoya","HK",mp(B,{tk:75,sc:65,aw:62,ju:55,ha:55,sd:72,agg:72})),
+P(3,"Cole","TH",mp(B,{sd:88,sct:90,st:82,ld:78,dis:72})),
+P(4,"Chessum","LK",mp(B,{ju:80,pa:48,ha:48,ol:42,ac:45,ru:68,tk:65,ld:60,st:70,ag:32})),
+P(5,"Henderson","LK",mp(B,{ju:78,st:75,ml:68,tk:68,li:72,ld:60,ag:32})),
+P(6,"Liebenberg","BF",mp(B,{tk:78,st:75,ml:68,ru:75,ten:75,sp:70,ex:68,pa:65,ac:65,ag:58,agg:75,jk:55})),
+P(7,"Reffell","OF",mp(B,{tk:85,jk:82,ten:85,ru:82,aw:72,pa:68,sc:72,ex:68,ac:65,ag:58,agg:75,pos:62,sp:62})),
+P(8,"Wiese","N8",mp(B,{st:85,sp:82,ex:75,pa:62,tk:72,ol:55,agg:78,ld:78,ml:72,ac:58,ag:50,rl:52,ten:72})),
+P(9,"van Poortvliet","SH",mp(B,{sp2:80,pa:75,bk:70,ac:78,sc:68,stp:60,ex:75,ag:78,ha:72,lp:75,con:68,rl:55,ten:65,pos:62,com:68,dis:65,tk:48,aw:72})),
+P(10,"Fin Smith","FH",mp(B,{gk:82,lp:78,sp2:80,sc:78,aw:82,com:78,gr:72,tf:78,stp:60,pa:60,ac:62,ag:68,ex:58,hb:55,tk:42,ha:72,pos:68,con:72,rl:62,dis:72})),
+P(11,"Hassell-Collins","LW",mp(B,{pa:90,ac:88,stp:80,ex:85,ha:62,hb:55,ag:80,rl:62,pos:58,tk:42})),
+P(12,"Kelly","IC",mp(B,{tk:72,aw:70,sp2:68,rl:68,com:65,stp:65,pa:68,ac:68,ag:68,ex:65,st:62})),
+P(13,"Kata","OC",mp(B,{sp:72,st:75,pa:70,stp:62,ol:58,agg:68,ac:68,ag:68,ex:65,tk:65})),
+P(14,"Ashton","RW",mp(B,{pos:82,sc:72,rl:78,pa:75,ac:72,ha:60,hb:58,stp:65,ag:72,ex:72})),
+P(15,"Steward","FB",mp(B,{hb:88,pos:82,pa:72,tk:65,ha:75,aw:78,com:75,ju:62,ag:75,ex:70,ac:72,sc:72})),
+P(16,"Clare","HK",mp(B,{tk:62,sd:60})),P(17,"N Smith","LH",mp(B,{sd:72,st:74})),
+P(18,"Heyes","TH",mp(B,{sd:78,sct:75,st:80})),P(19,"Martin","LK",mp(B,{ju:75,tk:65})),
+P(20,"van Staden","OF",mp(B,{tk:75,jk:72,ru:72})),P(21,"Youngs","SH",mp(B,{sp2:78,bk:72,aw:75})),
+P(22,"Pollard","FH",mp(B,{gk:85,com:80,tf:80,lp:75})),P(23,"Scott","OC",mp(B,{pa:68,tk:65})),
+]};
+
+/* ═══ PITCH RENDERER — positions and moves all 30 dots ═══ */
+const PITCH_W = 1000, PITCH_H = 500;
+const ZONE_X = [100, 280, 500, 720, 900]; // centre X for each zone 0-4
+
+// Formation positions relative to zone centre (attacking left-to-right)
+// Each pos: [dx from zone centre, y]
+const FWD_FORM = {
+    LH:[-60,-120], HK:[-60,0], TH:[-60,120],
+    LK:[-20,-70], LK2:[-20,70],
+    BF:[20,-140], OF:[20,140], N8:[20,0]
+};
+const BACK_FORM = {
+    SH:[60,0], FH:[120,0],
+    IC:[190,-60], OC:[190,60],
+    LW:[260,-180], RW:[260,180],
+    FB:[340,0]
+};
+// Defence mirror — spread across their zone
+const DEF_FWD = { LH:[40,-120],HK:[40,0],TH:[40,120],LK:[0,-70],LK2:[0,70],BF:[-20,-140],OF:[-20,140],N8:[-20,0] };
+const DEF_BACK = { SH:[-60,0],FH:[-120,0],IC:[-170,-60],OC:[-170,60],LW:[-230,-180],RW:[-230,180],FB:[-300,0] };
+
+function getFormationPos(pos, zone, isAtk) {
+    const zx = ZONE_X[Math.max(0,Math.min(4,zone))];
+    const forms = isAtk ? {...FWD_FORM,...BACK_FORM} : {...DEF_FWD,...DEF_BACK};
+    // Handle duplicate LK
+    const key = pos === "LK" ? (Math.random()>0.5?"LK":"LK2") : pos;
+    const off = forms[key] || forms[pos] || [0,0];
+    const defZone = 4 - zone;
+    const baseX = isAtk ? zx : ZONE_X[Math.max(0,Math.min(4,defZone))];
+    let x = baseX + off[0], y = PITCH_H/2 + off[1];
+    // Clamp to pitch
+    x = Math.max(40, Math.min(PITCH_W-40, x));
+    y = Math.max(30, Math.min(PITCH_H-30, y));
+    // Add slight randomness for natural feel
+    x += (Math.random()-0.5)*20;
+    y += (Math.random()-0.5)*15;
+    return [x, y];
+}
+
+function setFormation(state) {
+    const atkSquad = state.poss === "home" ? HOME.squad : AWAY.squad;
+    const defSquad = state.poss === "home" ? AWAY.squad : HOME.squad;
+    // LK index tracker
+    let atkLKi = 0, defLKi = 0;
+    for (const p of atkSquad) {
+        if (!p.on) continue;
+        let posKey = p.pos;
+        if (posKey === "LK") { posKey = atkLKi === 0 ? "LK" : "LK2"; atkLKi++; }
+        const forms = {...FWD_FORM,...BACK_FORM};
+        const off = forms[posKey] || [0,0];
+        const zx = ZONE_X[Math.max(0,Math.min(4,state.zone))];
+        p.tx = Math.max(40,Math.min(PITCH_W-40, zx + off[0] + (Math.random()-0.5)*18));
+        p.ty = Math.max(30,Math.min(PITCH_H-30, PITCH_H/2 + off[1] + (Math.random()-0.5)*12));
+    }
+    for (const p of defSquad) {
+        if (!p.on) continue;
+        let posKey = p.pos;
+        if (posKey === "LK") { posKey = defLKi === 0 ? "LK" : "LK2"; defLKi++; }
+        const forms = {...DEF_FWD,...DEF_BACK};
+        const off = forms[posKey] || [0,0];
+        const defZone = 4 - state.zone;
+        const zx = ZONE_X[Math.max(0,Math.min(4,defZone))];
+        p.tx = Math.max(40,Math.min(PITCH_W-40, zx + off[0] + (Math.random()-0.5)*18));
+        p.ty = Math.max(30,Math.min(PITCH_H-30, PITCH_H/2 + off[1] + (Math.random()-0.5)*12));
+    }
+}
+
+// Ball position
+let ballX = 500, ballY = 250, ballTX = 500, ballTY = 250;
+
+function moveBallTo(x, y) { ballTX = x; ballTY = y; }
+
+// Smooth interpolation each frame
+function lerpDots() {
+    const speed = 0.06;
+    for (const p of [...HOME.squad, ...AWAY.squad]) {
+        if (!p.on) continue;
+        p.x += (p.tx - p.x) * speed;
+        p.y += (p.ty - p.y) * speed;
+    }
+    ballX += (ballTX - ballX) * 0.08;
+    ballY += (ballTY - ballY) * 0.08;
+}
+
+function drawPitch() {
+    const svg = document.getElementById("pitch");
+    let s = "";
+    // Pitch background
+    s += `<rect width="1000" height="500" fill="#132a13" rx="8"/>`;
+    // Field markings
+    s += `<rect x="20" y="20" width="960" height="460" fill="none" stroke="#2a5a2a" stroke-width="1.5" rx="6"/>`;
+    // Try lines
+    s += `<line x1="60" y1="20" x2="60" y2="480" stroke="white" stroke-width="1.5" opacity="0.25"/>`;
+    s += `<line x1="940" y1="20" x2="940" y2="480" stroke="white" stroke-width="1.5" opacity="0.25"/>`;
+    // 22m lines
+    s += `<line x1="200" y1="20" x2="200" y2="480" stroke="white" stroke-width="0.8" opacity="0.12" stroke-dasharray="8"/>`;
+    s += `<line x1="800" y1="20" x2="800" y2="480" stroke="white" stroke-width="0.8" opacity="0.12" stroke-dasharray="8"/>`;
+    // Halfway
+    s += `<line x1="500" y1="20" x2="500" y2="480" stroke="white" stroke-width="0.8" opacity="0.15"/>`;
+    // 10m lines
+    s += `<line x1="380" y1="20" x2="380" y2="480" stroke="white" stroke-width="0.5" opacity="0.07" stroke-dasharray="5"/>`;
+    s += `<line x1="620" y1="20" x2="620" y2="480" stroke="white" stroke-width="0.5" opacity="0.07" stroke-dasharray="5"/>`;
+
+    // Players — home
+    for (const p of HOME.squad) {
+        if (!p.on) continue;
+        const opacity = 0.7;
+        s += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="8" fill="${HOME.color}" opacity="${opacity}"/>`;
+        s += `<text x="${p.x.toFixed(1)}" y="${(p.y+3).toFixed(1)}" text-anchor="middle" fill="white" font-size="7" font-weight="700" font-family="Inter,sans-serif">${p.num}</text>`;
+    }
+    // Players — away
+    for (const p of AWAY.squad) {
+        if (!p.on) continue;
+        const opacity = 0.7;
+        s += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="8" fill="${AWAY.color}" opacity="${opacity}"/>`;
+        s += `<text x="${p.x.toFixed(1)}" y="${(p.y+3).toFixed(1)}" text-anchor="middle" fill="white" font-size="7" font-weight="700" font-family="Inter,sans-serif">${p.num}</text>`;
+    }
+    // Ball
+    s += `<circle cx="${ballX.toFixed(1)}" cy="${ballY.toFixed(1)}" r="4" fill="white"/>`;
+    s += `<circle cx="${ballX.toFixed(1)}" cy="${ballY.toFixed(1)}" r="7" fill="none" stroke="white" stroke-width="0.8" opacity="0.4"/>`;
+
+    svg.innerHTML = s;
+}
+
+let animRunning = false;
+function animLoop() {
+    if (!animRunning) return;
+    lerpDots();
+    drawPitch();
+    requestAnimationFrame(animLoop);
+}
+
+/* ═══ ENGINE — drives the dots ═══ */
+function roll(n){return Math.floor(Math.random()*n)+1}
+function chance(p){return Math.random()*100<p}
+function pick(a){return a[Math.floor(Math.random()*a.length)]}
+function avg(ps,k){if(!ps.length)return 50;return ps.reduce((s,p)=>s+(p[k]||50),0)/ps.length}
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
+function xv(t){return t.squad.filter(p=>p.on&&!p.rc)}
+function fwds(t){return xv(t).filter(p=>["LH","HK","TH","LK","BF","OF","N8"].includes(p.pos))}
+function backs(t){return xv(t).filter(p=>["SH","FH","IC","OC","LW","RW","FB"].includes(p.pos))}
+function byPos(t,pos){return xv(t).find(p=>p.pos===pos)}
+function kicker(t){return xv(t).reduce((b,p)=>(p.gk>(b?.gk||0))?p:b,null)}
+
+let STATE = null;
+
+function initState() {
+    return { poss:"home", zone:2, minute:0, half:1,
+        hs:0, as:0, ht:0, at:0, phases:0,
+        hPoss:0, aPoss:0, momentum:0, ruckSpd:"ok",
+        paused:false, finished:false, events:[] };
+}
+
+const $ = id => document.getElementById(id);
+function addComm(text, cls) {
+    const el = document.createElement("div");
+    el.className = "comm-line" + (cls?" event-"+cls:"");
+    el.innerHTML = `<span class="min">${STATE.minute}'</span>${text}`;
+    $("comm").appendChild(el);
+    $("comm").scrollTop = $("comm").scrollHeight;
+}
+function flash(text, cls) {
+    const el = $("event-flash");
+    el.textContent = text;
+    el.className = "event-flash active " + (cls||"");
+    setTimeout(()=> el.classList.remove("active"), 2500);
+}
+function updateUI() {
+    $("sb-score").textContent = `${STATE.hs} - ${STATE.as}`;
+    $("sb-clock").innerHTML = `<span class="min">${STATE.minute}'</span>`;
+    const tp = STATE.hPoss+STATE.aPoss||1;
+    $("st-poss").textContent = Math.round(STATE.hPoss/tp*100)+"-"+Math.round(STATE.aPoss/tp*100);
+    $("st-ruck").textContent = {slow:"Slow",ok:"OK",quick:"Quick",lightning:"Fast"}[STATE.ruckSpd]||"OK";
+    $("st-zone").textContent = ["Own 22","Own Half","Midfield","Opp Half","Opp 22"][STATE.zone]||"Midfield";
+    $("sb-phase").textContent = STATE.minute<=40?"1ST HALF":STATE.minute<=80?"2ND HALF":"FULL TIME";
+}
+
+function atk(){return STATE.poss==="home"?HOME:AWAY}
+function def(){return STATE.poss==="home"?AWAY:HOME}
+function swap(){STATE.poss=STATE.poss==="home"?"away":"home";STATE.zone=4-STATE.zone}
+
+// Move a specific player toward a point (for action sequences)
+function movePlayer(p, x, y) { p.tx=clamp(x,40,960); p.ty=clamp(y,30,470); }
+function moveBallToPlayer(p) { moveBallTo(p.tx, p.ty); }
+
+// Ruck speed
+function calcRuck() {
+    const f = fwds(atk());
+    const r = avg(f,"ru") + roll(20)-10;
+    if(r>=75){STATE.ruckSpd="lightning";return "lightning"}
+    if(r>=58){STATE.ruckSpd="quick";return "quick"}
+    if(r>=40){STATE.ruckSpd="ok";return "ok"}
+    STATE.ruckSpd="slow";return "slow";
+}
+
+/* ═══ GAME LOOP — each tick is ~3 seconds real time ═══ */
+const TICK_MS = 3000;
+
+function kickOff() {
+    $("start").style.display = "none";
+    $("scoreboard").style.display = "flex";
+    $("main-ui").style.display = "flex";
+    STATE = initState();
+    // Init player positions
+    for(const p of HOME.squad){p.x=200;p.y=250;p.tx=200;p.ty=250}
+    for(const p of AWAY.squad){p.x=800;p.y=250;p.tx=800;p.ty=250}
+    ballX=500;ballY=250;ballTX=500;ballTY=250;
+    animRunning = true;
+    animLoop();
+    setFormation(STATE);
+    addComm(`Kick-off at the AJ Bell Stadium! Sale Sharks vs Leicester Tigers.`, "");
+    updateUI();
+    setTimeout(tick, TICK_MS);
+}
+
+function tick() {
+    if (STATE.finished || STATE.paused) return;
+    STATE.minute++;
+    if(STATE.poss==="home")STATE.hPoss++;else STATE.aPoss++;
+    STATE.phases++;
+
+    // Half time
+    if(STATE.minute===41 && STATE.half===1) {
+        STATE.half=2; addComm(`HALF TIME: Sale Sharks ${STATE.hs} - ${STATE.as} Leicester Tigers`,"half");
+        STATE.poss="away"; STATE.zone=2; setFormation(STATE); updateUI();
+        // Pause briefly then continue
+        setTimeout(tick, TICK_MS*2); return;
+    }
+    if(STATE.minute>80) {
+        addComm(`FULL TIME: Sale Sharks ${STATE.hs} - ${STATE.as} Leicester Tigers`,"half");
+        flash("FULL TIME",""); STATE.finished=true; updateUI(); return;
+    }
+
+    // Run a passage of play (2-4 phases)
+    runPassage();
+    updateUI();
+    setTimeout(tick, TICK_MS);
+}
+
+function runPassage() {
+    const numPhases = 2 + roll(2); // 2-4 phases
+    for (let ph = 0; ph < numPhases; ph++) {
+        const a = atk(), d = def();
+        const carrier = pick([...fwds(a),...backs(a)]);
+        if (!carrier) break;
+
+        // Move ball and carrier forward
+        const zx = ZONE_X[STATE.zone];
+        movePlayer(carrier, zx + roll(60), carrier.ty + (Math.random()-0.5)*40);
+        moveBallToPlayer(carrier);
+
+        // Ruck contest
+        const ruckR = roll(100);
+        const jackalThreat = avg(fwds(d).slice(0,2),"jk");
+        if (ruckR < jackalThreat * 0.15) {
+            // Turnover!
+            const jackaler = fwds(d).reduce((b,p)=>(p.jk>(b?.jk||0))?p:b,fwds(d)[0]);
+            addComm(`Turnover! ${jackaler?.name||"A defender"} jackals brilliantly for ${d.name}!`,"turnover");
+            flash("TURNOVER","turnover");
+            swap(); setFormation(STATE); return;
+        }
+        if (ruckR < 8) {
+            // Penalty
+            addComm(`Penalty to ${a.name} at the breakdown.`);
+            handlePenalty(); return;
+        }
+
+        const spd = calcRuck();
+
+        // Decide: kick, backline, or forward carry
+        if (STATE.zone <= 1 && chance(25)) {
+            // Kick for territory
+            const k = byPos(a,"FH") || kicker(a);
+            addComm(`${k?.name||"The kicker"} kicks for territory — ${a.name} find touch.`);
+            swap(); STATE.zone = Math.max(0, STATE.zone-1); setFormation(STATE); return;
+        }
+
+        if ((spd==="quick"||spd==="lightning") && chance(45)) {
+            // Backline move
+            const runner = pick(backs(a).filter(p=>["LW","RW","OC","FB"].includes(p.pos)));
+            if (runner) {
+                const passChain = avg(backs(a),"sp2")*0.4 + avg(backs(a),"ha")*0.3 + avg(backs(a),"lp")*0.2;
+                const defLine = avg(backs(d),"tk")*0.3 + avg(backs(d),"pos")*0.3;
+                const quality = passChain - defLine + roll(30)-15;
+
+                // Move backs wide
+                for(const b of backs(a)) {
+                    movePlayer(b, b.tx + 40 + roll(30), b.ty);
+                }
+                movePlayer(runner, runner.tx + 80, runner.ty + (Math.random()-0.5)*60);
+                moveBallToPlayer(runner);
+
+                if (quality > 20) {
+                    // Line break!
+                    if(STATE.zone<4)STATE.zone++;
+                    addComm(`${runner.name} breaks the line for ${a.name}! Racing away!`);
+                    movePlayer(runner, ZONE_X[STATE.zone]+100, runner.ty);
+                    moveBallToPlayer(runner);
+
+                    if (STATE.zone >= 4 && chance(50)) {
+                        scoreTry(runner); return;
+                    }
+                    if (STATE.zone >= 3 && chance(25)) {
+                        scoreTry(runner); return;
+                    }
+                    // Near miss
+                    if (STATE.zone >= 4) {
+                        addComm(`${runner.name} is hauled down just short! So close!`);
+                        flash("HELD UP!","turnover");
+                    }
+                    STATE.momentum += STATE.poss==="home"?8:-8;
+                } else if (quality > 5) {
+                    addComm(`${a.name} move it wide — good metres gained.`);
+                    if(STATE.zone<4 && chance(40))STATE.zone++;
+                } else {
+                    addComm(`${a.name} try to go wide but ${d.name}'s defence holds.`);
+                }
+                setFormation(STATE);
+                continue;
+            }
+        }
+
+        // Forward carry
+        const fwd = pick(fwds(a));
+        if (!fwd) break;
+        movePlayer(fwd, fwd.tx + 30 + roll(40), fwd.ty + (Math.random()-0.5)*30);
+        moveBallToPlayer(fwd);
+
+        const gainR = roll(100);
+        if (gainR > 70) {
+            addComm(`${fwd.name} drives forward powerfully for ${a.name}.`);
+            if(STATE.zone<4)STATE.zone++;
+            STATE.momentum += STATE.poss==="home"?3:-3;
+        } else if (gainR > 35) {
+            addComm(`${fwd.name} carries and recycles for ${a.name}.`);
+        } else {
+            addComm(`${fwd.name} is stopped at the gainline by ${pick(fwds(d))?.name||"a defender"}.`);
+        }
+
+        // Try from sustained pressure
+        if (STATE.zone >= 4 && ph >= 1 && chance(15 + ph*5)) {
+            scoreTry(fwd); return;
+        }
+
+        setFormation(STATE);
+    }
+}
+
+function scoreTry(scorer) {
+    const a = atk();
+    // Move scorer to try line
+    const tryX = STATE.poss==="home" ? 930 : 70;
+    movePlayer(scorer, tryX, scorer.ty);
+    moveBallTo(tryX, scorer.ty);
+
+    addComm(`TRY! ${scorer.name} touches down for ${a.name}!`,"try");
+    flash("TRY!","try");
+
+    if(STATE.poss==="home"){STATE.hs+=5;STATE.ht++}else{STATE.as+=5;STATE.at++}
+    STATE.momentum += STATE.poss==="home"?15:-15;
+
+    // Conversion
+    const k = kicker(a);
+    if(k && k.gk + roll(20)-10 > 45) {
+        addComm(`${k.name} converts! Two more points.`,"try");
+        if(STATE.poss==="home")STATE.hs+=2;else STATE.as+=2;
+    } else {
+        addComm(`Conversion missed.`);
+    }
+    swap(); STATE.zone=2; setFormation(STATE);
+}
+
+function handlePenalty() {
+    const a = atk(), k = kicker(a);
+    if (!k) return;
+    if (STATE.zone >= 3 && k.gk > 65) {
+        // Kick at goal
+        if (k.gk + roll(20)-10 > 42) {
+            addComm(`${k.name} slots the penalty! Three points to ${a.name}.`,"penalty_goal");
+            flash("3 POINTS","penalty");
+            if(STATE.poss==="home")STATE.hs+=3;else STATE.as+=3;
+        } else {
+            addComm(`${k.name} pushes the penalty wide. No score.`);
+        }
+        swap(); STATE.zone=2;
+    } else {
+        addComm(`${a.name} kick for touch — lineout in ${def().name}'s territory.`);
+        STATE.zone = Math.min(4, STATE.zone+2);
+    }
+    setFormation(STATE);
+}
+
+</script>
+</body>
+</html>
