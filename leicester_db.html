@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leicester Tigers — Player Database</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+:root{--bg:#0a0e13;--bg2:#12171e;--bg3:#1a2230;--bg4:#222d3a;--text1:#f0f4f8;--text2:#94a3b8;--text3:#4a5568;--accent:#3b82f6;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--border:#1e293b;--team:#C8102E}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text1);min-height:100vh}
+
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between}
+.topbar h1{font-size:1.1em;font-weight:700}
+.topbar h1 span{color:var(--accent)}
+.topbar .count{font-size:0.78em;color:var(--text3)}
+
+.layout{display:grid;grid-template-columns:240px 1fr;height:calc(100vh - 49px)}
+
+/* Squad list */
+.squad-list{background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;padding:8px}
+.squad-section{margin-bottom:12px}
+.squad-section h3{font-size:0.65em;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);padding:6px 10px}
+.player-item{padding:7px 10px;border-radius:6px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:0.8em;transition:background 0.15s}
+.player-item:hover{background:var(--bg3)}
+.player-item.active{background:var(--bg4);border-left:3px solid var(--accent)}
+.player-item .pos{color:var(--text3);font-weight:600;font-size:0.75em}
+
+/* Player detail */
+.detail{overflow-y:auto;padding:20px 24px}
+.detail-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;border-left:4px solid var(--team);padding-left:16px}
+.detail-name{font-size:1.6em;font-weight:800}
+.detail-meta{font-size:0.8em;color:var(--text2);margin-top:4px}
+.detail-meta span{margin-right:12px}
+
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.stat-card h2{font-size:0.68em;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.stat-card.wide{grid-column:span 2}
+
+.s-row{display:flex;align-items:center;gap:6px;padding:2px 0}
+.s-name{width:100px;font-size:0.72em;color:var(--text2);flex-shrink:0}
+.s-bar{flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.s-fill{height:100%;border-radius:2px}
+.s-val{width:24px;text-align:right;font-size:0.72em;font-weight:700;flex-shrink:0}
+
+.hi .s-fill{background:var(--green)} .hi .s-val{color:var(--green)}
+.gd .s-fill{background:var(--accent)} .gd .s-val{color:var(--accent)}
+.md .s-fill{background:var(--yellow)} .md .s-val{color:var(--yellow)}
+.lo .s-fill{background:var(--red)} .lo .s-val{color:var(--red)}
+
+/* Hidden stats */
+.hidden-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.h-item{text-align:center;padding:8px 4px;background:var(--bg3);border-radius:6px}
+.h-label{font-size:0.6em;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
+.h-val{font-size:0.72em;font-weight:700}
+.h-val.elite{color:var(--green)} .h-val.high{color:var(--accent)}
+.h-val.medium{color:var(--yellow)} .h-val.low{color:var(--red)}
+
+@media(max-width:700px){.layout{grid-template-columns:1fr}.squad-list{display:none}}
+</style>
+</head>
+<body>
+<div class="topbar">
+    <h1>Leicester <span>Tigers</span> — Player Database</h1>
+    <span class="count">23 Players | 35 Visible + 10 Hidden Stats</span>
+</div>
+<div class="layout">
+    <div class="squad-list" id="squad-list"></div>
+    <div class="detail" id="detail"><p style="color:var(--text3);padding:40px;text-align:center">Select a player from the squad list</p></div>
+</div>
+<script>
+const SQUAD = [
+// ══ FRONT ROW ══
+{num:1,name:"Ellis Genge",pos:"Loosehead Prop",posKey:"LH",age:29,nat:"England",ht:185,wt:120,
+ // Physical
+ stopping_power:78,explosiveness:68,leg_drive:85,pace:45,acceleration:50,agility:40,strength:90,
+ // Mental
+ aggression:90,composure:55,concentration:58,awareness:55,running_lines:30,discipline:52,tenacity:82,scanning:42,positioning:52,
+ // Technical
+ long_passing:18,handling:48,high_ball:15,offload:45,tackling:72,rucking:72,mauling:75,jackling:25,grubber:5,chipping:5,box_kicking:5,stepping:30,short_passing:38,touch_finder:10,
+ // Set Piece
+ goal_kicking:5,scrum_drive:85,scrum_tech:80,jumping:22,lifting:60,
+ // Hidden
+ consistency:"High",big_game:"Elite",injury_prone:"Medium",dirtiness:"Medium",work_rate:"High",versatility:"Low",professionalism:"High",ambition:"High",loyalty:"Medium",temperament:"Medium",
+ // Meta
+ potential:90,form:74,fitness:98,morale:76,wage:16000,contract_end:3},
+
+{num:2,name:"Julian Montoya",pos:"Hooker",posKey:"HK",age:31,nat:"Argentina",ht:178,wt:112,
+ stopping_power:68,explosiveness:58,leg_drive:68,pace:45,acceleration:48,agility:42,strength:80,
+ aggression:80,composure:68,concentration:70,awareness:65,running_lines:38,discipline:62,tenacity:88,scanning:68,positioning:60,
+ long_passing:20,handling:55,high_ball:18,offload:42,tackling:82,rucking:78,mauling:78,jackling:55,grubber:5,chipping:5,box_kicking:5,stepping:25,short_passing:42,touch_finder:12,
+ goal_kicking:5,scrum_drive:75,scrum_tech:68,jumping:55,lifting:52,
+ consistency:"Elite",big_game:"Elite",injury_prone:"Low",dirtiness:"Low",work_rate:"Elite",versatility:"Low",professionalism:"Elite",ambition:"High",loyalty:"High",temperament:"Elite",
+ potential:88,form:76,fitness:100,morale:80,wage:15000,contract_end:2},
+
+{num:3,name:"Dan Cole",pos:"Tighthead Prop",posKey:"TH",age:37,nat:"England",ht:191,wt:128,
+ stopping_power:78,explosiveness:25,leg_drive:78,pace:22,acceleration:22,agility:18,strength:85,
+ aggression:62,composure:70,concentration:72,awareness:55,running_lines:10,discipline:72,tenacity:75,scanning:38,positioning:58,
+ long_passing:8,handling:30,high_ball:8,offload:18,tackling:68,rucking:68,mauling:75,jackling:30,grubber:5,chipping:5,box_kicking:5,stepping:5,short_passing:22,touch_finder:8,
+ goal_kicking:5,scrum_drive:84,scrum_tech:93,jumping:15,lifting:55,
+ consistency:"Elite",big_game:"High",injury_prone:"Low",dirtiness:"Low",work_rate:"Medium",versatility:"Low",professionalism:"Elite",ambition:"Low",loyalty:"Elite",temperament:"Elite",
+ potential:80,form:68,fitness:92,morale:78,wage:11000,contract_end:1},
+
+// ══ SECOND ROW ══
+{num:4,name:"Ollie Chessum",pos:"Lock",posKey:"LK",age:24,nat:"England",ht:200,wt:118,
+ stopping_power:68,explosiveness:58,leg_drive:70,pace:50,acceleration:48,agility:42,strength:80,
+ aggression:75,composure:62,concentration:66,awareness:65,running_lines:35,discipline:62,tenacity:80,scanning:55,positioning:62,
+ long_passing:15,handling:55,high_ball:50,offload:40,tackling:78,rucking:78,mauling:74,jackling:32,grubber:5,chipping:5,box_kicking:5,stepping:20,short_passing:35,touch_finder:10,
+ goal_kicking:5,scrum_drive:62,scrum_tech:55,jumping:85,lifting:78,
+ consistency:"High",big_game:"Elite",injury_prone:"Medium",dirtiness:"Low",work_rate:"Elite",versatility:"High",professionalism:"Elite",ambition:"High",loyalty:"High",temperament:"High",
+ potential:90,form:72,fitness:96,morale:78,wage:13000,contract_end:3},
+
+{num:5,name:"George Martin",pos:"Lock",posKey:"LK",age:23,nat:"England",ht:198,wt:118,
+ stopping_power:80,explosiveness:62,leg_drive:72,pace:48,acceleration:46,agility:40,strength:85,
+ aggression:88,composure:55,concentration:60,awareness:58,running_lines:28,discipline:55,tenacity:82,scanning:48,positioning:58,
+ long_passing:12,handling:48,high_ball:45,offload:32,tackling:82,rucking:80,mauling:75,jackling:28,grubber:5,chipping:5,box_kicking:5,stepping:18,short_passing:30,touch_finder:8,
+ goal_kicking:5,scrum_drive:60,scrum_tech:52,jumping:78,lifting:74,
+ consistency:"Medium",big_game:"Elite",injury_prone:"Medium",dirtiness:"Medium",work_rate:"High",versatility:"Medium",professionalism:"High",ambition:"High",loyalty:"High",temperament:"Medium",
+ potential:92,form:70,fitness:100,morale:75,wage:12000,contract_end:4},
+
+// ══ BACK ROW ══
+{num:6,name:"Hanro Liebenberg",pos:"Blindside Flanker",posKey:"BF",age:29,nat:"South Africa",ht:195,wt:110,
+ stopping_power:75,explosiveness:62,leg_drive:68,pace:60,acceleration:60,agility:52,strength:78,
+ aggression:78,composure:62,concentration:65,awareness:65,running_lines:45,discipline:62,tenacity:82,scanning:58,positioning:64,
+ long_passing:20,handling:55,high_ball:42,offload:45,tackling:82,rucking:78,mauling:65,jackling:55,grubber:8,chipping:5,box_kicking:5,stepping:30,short_passing:40,touch_finder:12,
+ goal_kicking:5,scrum_drive:55,scrum_tech:48,jumping:70,lifting:55,
+ consistency:"High",big_game:"High",injury_prone:"Low",dirtiness:"Low",work_rate:"Elite",versatility:"Medium",professionalism:"Elite",ambition:"Medium",loyalty:"Elite",temperament:"High",
+ potential:82,form:72,fitness:100,morale:78,wage:11000,contract_end:2},
+
+{num:7,name:"Tommy Reffell",pos:"Openside Flanker",posKey:"OF",age:25,nat:"Wales",ht:183,wt:100,
+ stopping_power:68,explosiveness:70,leg_drive:65,pace:68,acceleration:72,agility:65,strength:72,
+ aggression:82,composure:68,concentration:76,awareness:76,running_lines:55,discipline:68,tenacity:92,scanning:72,positioning:76,
+ long_passing:22,handling:60,high_ball:45,offload:50,tackling:88,rucking:85,mauling:60,jackling:88,grubber:8,chipping:8,box_kicking:5,stepping:45,short_passing:45,touch_finder:15,
+ goal_kicking:5,scrum_drive:52,scrum_tech:46,jumping:58,lifting:46,
+ consistency:"Elite",big_game:"High",injury_prone:"Low",dirtiness:"Low",work_rate:"Elite",versatility:"Medium",professionalism:"Elite",ambition:"High",loyalty:"High",temperament:"Elite",
+ potential:88,form:78,fitness:100,morale:82,wage:12000,contract_end:3},
+
+{num:8,name:"Jasper Wiese",pos:"Number Eight",posKey:"N8",age:29,nat:"South Africa",ht:186,wt:116,
+ stopping_power:90,explosiveness:75,leg_drive:82,pace:60,acceleration:62,agility:50,strength:88,
+ aggression:90,composure:52,concentration:55,awareness:55,running_lines:48,discipline:48,tenacity:85,scanning:45,positioning:52,
+ long_passing:15,handling:55,high_ball:30,offload:55,tackling:78,rucking:75,mauling:70,jackling:35,grubber:5,chipping:5,box_kicking:5,stepping:35,short_passing:38,touch_finder:8,
+ goal_kicking:5,scrum_drive:62,scrum_tech:50,jumping:42,lifting:40,
+ consistency:"High",big_game:"High",injury_prone:"Low",dirtiness:"Medium",work_rate:"High",versatility:"Low",professionalism:"High",ambition:"Medium",loyalty:"High",temperament:"Medium",
+ potential:86,form:75,fitness:100,morale:74,wage:14000,contract_end:1},
+
+// ══ HALF BACKS ══
+{num:9,name:"Jack van Poortvliet",pos:"Scrum Half",posKey:"SH",age:23,nat:"England",ht:180,wt:88,
+ stopping_power:30,explosiveness:68,leg_drive:32,pace:72,acceleration:76,agility:74,strength:45,
+ aggression:52,composure:68,concentration:70,awareness:72,running_lines:55,discipline:70,tenacity:65,scanning:74,positioning:65,
+ long_passing:76,handling:74,high_ball:28,offload:32,tackling:52,rucking:35,mauling:8,jackling:18,grubber:55,chipping:48,box_kicking:80,stepping:60,short_passing:82,touch_finder:52,
+ goal_kicking:12,scrum_drive:8,scrum_tech:8,jumping:18,lifting:8,
+ consistency:"High",big_game:"Medium",injury_prone:"Medium",dirtiness:"Low",work_rate:"High",versatility:"Low",professionalism:"Elite",ambition:"High",loyalty:"High",temperament:"High",
+ potential:87,form:70,fitness:98,morale:75,wage:9000,contract_end:4},
+
+{num:10,name:"Handré Pollard",pos:"Fly Half",posKey:"FH",age:30,nat:"South Africa",ht:183,wt:96,
+ stopping_power:55,explosiveness:55,leg_drive:45,pace:55,acceleration:56,agility:58,strength:68,
+ aggression:55,composure:92,concentration:85,awareness:84,running_lines:60,discipline:80,tenacity:68,scanning:82,positioning:74,
+ long_passing:85,handling:78,high_ball:62,offload:38,tackling:68,rucking:25,mauling:10,jackling:12,grubber:75,chipping:74,box_kicking:40,stepping:50,short_passing:86,touch_finder:88,
+ goal_kicking:93,scrum_drive:5,scrum_tech:5,jumping:25,lifting:8,
+ consistency:"Elite",big_game:"Elite",injury_prone:"Medium",dirtiness:"Low",work_rate:"Medium",versatility:"Medium",professionalism:"Elite",ambition:"Medium",loyalty:"Medium",temperament:"Elite",
+ potential:92,form:76,fitness:96,morale:80,wage:18000,contract_end:2},
+
+// ══ CENTRES ══
+{num:12,name:"Dan Kelly",pos:"Inside Centre",posKey:"IC",age:23,nat:"England",ht:185,wt:98,
+ stopping_power:62,explosiveness:62,leg_drive:55,pace:66,acceleration:66,agility:62,strength:70,
+ aggression:58,composure:64,concentration:62,awareness:66,running_lines:62,discipline:64,tenacity:66,scanning:60,positioning:60,
+ long_passing:55,handling:68,high_ball:45,offload:52,tackling:76,rucking:35,mauling:15,jackling:18,grubber:35,chipping:35,box_kicking:8,stepping:58,short_passing:70,touch_finder:35,
+ goal_kicking:20,scrum_drive:8,scrum_tech:8,jumping:30,lifting:12,
+ consistency:"Medium",big_game:"Medium",injury_prone:"Medium",dirtiness:"Low",work_rate:"High",versatility:"Medium",professionalism:"High",ambition:"Medium",loyalty:"High",temperament:"High",
+ potential:82,form:66,fitness:95,morale:72,wage:7500,contract_end:3},
+
+{num:13,name:"Solomone Kata",pos:"Outside Centre",posKey:"OC",age:29,nat:"Tonga",ht:183,wt:105,
+ stopping_power:82,explosiveness:78,leg_drive:62,pace:76,acceleration:74,agility:62,strength:82,
+ aggression:72,composure:52,concentration:50,awareness:55,running_lines:58,discipline:52,tenacity:65,scanning:45,positioning:52,
+ long_passing:35,handling:62,high_ball:48,offload:58,tackling:70,rucking:30,mauling:15,jackling:15,grubber:22,chipping:25,box_kicking:5,stepping:62,short_passing:55,touch_finder:20,
+ goal_kicking:8,scrum_drive:8,scrum_tech:8,jumping:35,lifting:12,
+ consistency:"Medium",big_game:"High",injury_prone:"Low",dirtiness:"Medium",work_rate:"Medium",versatility:"Medium",professionalism:"Medium",ambition:"Medium",loyalty:"Medium",temperament:"Medium",
+ potential:80,form:70,fitness:100,morale:74,wage:9500,contract_end:2},
+
+// ══ BACK THREE ══
+{num:11,name:"Ollie Hassell-Collins",pos:"Left Wing",posKey:"LW",age:25,nat:"England",ht:185,wt:94,
+ stopping_power:45,explosiveness:84,leg_drive:40,pace:90,acceleration:88,agility:82,strength:58,
+ aggression:45,composure:55,concentration:52,awareness:56,running_lines:68,discipline:58,tenacity:55,scanning:50,positioning:52,
+ long_passing:22,handling:66,high_ball:58,offload:45,tackling:45,rucking:20,mauling:8,jackling:10,grubber:30,chipping:32,box_kicking:5,stepping:82,short_passing:40,touch_finder:22,
+ goal_kicking:8,scrum_drive:5,scrum_tech:5,jumping:50,lifting:8,
+ consistency:"Medium",big_game:"Medium",injury_prone:"Low",dirtiness:"Low",work_rate:"Medium",versatility:"Low",professionalism:"Medium",ambition:"High",loyalty:"Medium",temperament:"Medium",
+ potential:84,form:68,fitness:100,morale:72,wage:9000,contract_end:2},
+
+{num:14,name:"Adam Radwan",pos:"Right Wing",posKey:"RW",age:26,nat:"England",ht:183,wt:88,
+ stopping_power:32,explosiveness:92,leg_drive:28,pace:95,acceleration:93,agility:88,strength:45,
+ aggression:38,composure:52,concentration:50,awareness:52,running_lines:62,discipline:58,tenacity:48,scanning:45,positioning:52,
+ long_passing:18,handling:62,high_ball:52,offload:38,tackling:38,rucking:12,mauling:5,jackling:5,grubber:28,chipping:32,box_kicking:5,stepping:88,short_passing:35,touch_finder:20,
+ goal_kicking:8,scrum_drive:5,scrum_tech:5,jumping:45,lifting:5,
+ consistency:"Medium",big_game:"Medium",injury_prone:"Medium",dirtiness:"Low",work_rate:"Medium",versatility:"Low",professionalism:"Medium",ambition:"High",loyalty:"Medium",temperament:"Medium",
+ potential:82,form:66,fitness:100,morale:70,wage:7000,contract_end:2},
+
+{num:15,name:"Freddie Steward",pos:"Fullback",posKey:"FB",age:23,nat:"England",ht:196,wt:102,
+ stopping_power:55,explosiveness:62,leg_drive:48,pace:74,acceleration:68,agility:60,strength:68,
+ aggression:42,composure:74,concentration:76,awareness:76,running_lines:60,discipline:74,tenacity:62,scanning:74,positioning:86,
+ long_passing:55,handling:76,high_ball:92,offload:35,tackling:62,rucking:18,mauling:8,jackling:8,grubber:52,chipping:50,box_kicking:25,stepping:55,short_passing:58,touch_finder:72,
+ goal_kicking:45,scrum_drive:5,scrum_tech:5,jumping:65,lifting:10,
+ consistency:"Elite",big_game:"High",injury_prone:"Low",dirtiness:"Low",work_rate:"High",versatility:"Medium",professionalism:"Elite",ambition:"High",loyalty:"High",temperament:"Elite",
+ potential:90,form:74,fitness:100,morale:78,wage:12000,contract_end:4},
+
+// ══ BENCH ══
+{num:16,name:"Charlie Clare",pos:"Hooker",posKey:"HK",age:28,nat:"England",ht:183,wt:105,
+ stopping_power:55,explosiveness:45,leg_drive:55,pace:40,acceleration:42,agility:36,strength:68,
+ aggression:65,composure:50,concentration:52,awareness:48,running_lines:22,discipline:55,tenacity:66,scanning:48,positioning:46,
+ long_passing:12,handling:45,high_ball:12,offload:28,tackling:62,rucking:60,mauling:62,jackling:25,grubber:5,chipping:5,box_kicking:5,stepping:16,short_passing:34,touch_finder:8,
+ goal_kicking:5,scrum_drive:62,scrum_tech:55,jumping:50,lifting:45,
+ consistency:"Medium",big_game:"Low",injury_prone:"Low",dirtiness:"Low",work_rate:"High",versatility:"Low",professionalism:"High",ambition:"Medium",loyalty:"High",temperament:"Medium",
+ potential:72,form:58,fitness:100,morale:68,wage:4500,contract_end:2},
+
+{num:17,name:"James Whitcombe",pos:"Loosehead Prop",posKey:"LH",age:24,nat:"England",ht:184,wt:118,
+ stopping_power:62,explosiveness:36,leg_drive:66,pace:30,acceleration:32,agility:26,strength:76,
+ aggression:60,composure:48,concentration:52,awareness:42,running_lines:15,discipline:58,tenacity:64,scanning:32,positioning:45,
+ long_passing:10,handling:32,high_ball:10,offload:20,tackling:58,rucking:56,mauling:62,jackling:15,grubber:5,chipping:5,box_kicking:5,stepping:10,short_passing:26,touch_finder:8,
+ goal_kicking:5,scrum_drive:70,scrum_tech:62,jumping:18,lifting:52,
+ consistency:"Medium",big_game:"Low",injury_prone:"Low",dirtiness:"Low",work_rate:"High",versatility:"Low",professionalism:"High",ambition:"High",loyalty:"High",temperament:"Medium",
+ potential:78,form:56,fitness:100,morale:66,wage:3500,contract_end:3},
+
+{num:18,name:"Joe Heyes",pos:"Tighthead Prop",posKey:"TH",age:25,nat:"England",ht:189,wt:126,
+ stopping_power:72,explosiveness:40,leg_drive:76,pace:30,acceleration:30,agility:26,strength:82,
+ aggression:66,composure:58,concentration:60,awareness:48,running_lines:15,discipline:62,tenacity:72,scanning:38,positioning:52,
+ long_passing:10,handling:38,high_ball:8,offload:24,tackling:64,rucking:62,mauling:70,jackling:18,grubber:5,chipping:5,box_kicking:5,stepping:10,short_passing:26,touch_finder:8,
+ goal_kicking:5,scrum_drive:78,scrum_tech:74,jumping:18,lifting:55,
+ consistency:"High",big_game:"Medium",injury_prone:"Low",dirtiness:"Low",work_rate:"High",versatility:"Low",professionalism:"High",ambition:"High",loyalty:"Elite",temperament:"High",
+ potential:84,form:66,fitness:100,morale:74,wage:8000,contract_end:3},
+
+{num:19,name:"Cameron Henderson",pos:"Lock",posKey:"LK",age:26,nat:"Scotland",ht:198,wt:116,
+ stopping_power:58,explosiveness:42,leg_drive:60,pace:38,acceleration:36,agility:32,strength:72,
+ aggression:64,composure:54,concentration:56,awareness:52,running_lines:24,discipline:60,tenacity:68,scanning:46,positioning:52,
+ long_passing:14,handling:44,high_ball:42,offload:30,tackling:66,rucking:64,mauling:66,jackling:24,grubber:5,chipping:5,box_kicking:5,stepping:14,short_passing:30,touch_finder:8,
+ goal_kicking:5,scrum_drive:54,scrum_tech:48,jumping:76,lifting:70,
+ consistency:"Medium",big_game:"Medium",injury_prone:"Medium",dirtiness:"Low",work_rate:"High",versatility:"Medium",professionalism:"High",ambition:"Medium",loyalty:"Medium",temperament:"High",
+ potential:76,form:60,fitness:94,morale:68,wage:5500,contract_end:2},
+
+{num:20,name:"Olly Cracknell",pos:"Blindside Flanker",posKey:"BF",age:30,nat:"Wales",ht:190,wt:108,
+ stopping_power:66,explosiveness:58,leg_drive:62,pace:58,acceleration:58,agility:50,strength:72,
+ aggression:76,composure:54,concentration:56,awareness:56,running_lines:40,discipline:54,tenacity:76,scanning:50,positioning:56,
+ long_passing:18,handling:46,high_ball:28,offload:36,tackling:74,rucking:70,mauling:55,jackling:48,grubber:5,chipping:5,box_kicking:5,stepping:28,short_passing:36,touch_finder:10,
+ goal_kicking:5,scrum_drive:50,scrum_tech:44,jumping:52,lifting:44,
+ consistency:"High",big_game:"Medium",injury_prone:"Low",dirtiness:"Medium",work_rate:"Elite",versatility:"High",professionalism:"High",ambition:"Low",loyalty:"High",temperament:"High",
+ potential:72,form:62,fitness:100,morale:70,wage:5500,contract_end:1},
+
+{num:21,name:"Ben Youngs",pos:"Scrum Half",posKey:"SH",age:35,nat:"England",ht:178,wt:90,
+ stopping_power:30,explosiveness:55,leg_drive:28,pace:55,acceleration:58,agility:62,strength:42,
+ aggression:45,composure:80,concentration:74,awareness:82,running_lines:55,discipline:74,tenacity:58,scanning:80,positioning:66,
+ long_passing:78,handling:76,high_ball:30,offload:35,tackling:48,rucking:30,mauling:8,jackling:15,grubber:58,chipping:55,box_kicking:82,stepping:55,short_passing:85,touch_finder:55,
+ goal_kicking:15,scrum_drive:5,scrum_tech:5,jumping:15,lifting:8,
+ consistency:"High",big_game:"Elite",injury_prone:"Low",dirtiness:"Low",work_rate:"Medium",versatility:"Low",professionalism:"Elite",ambition:"Low",loyalty:"Elite",temperament:"Elite",
+ potential:78,form:64,fitness:94,morale:76,wage:9000,contract_end:1},
+
+{num:22,name:"Jamie Shillcock",pos:"Fly Half",posKey:"FH",age:27,nat:"England",ht:178,wt:85,
+ stopping_power:25,explosiveness:58,leg_drive:24,pace:62,acceleration:62,agility:68,strength:38,
+ aggression:35,composure:64,concentration:62,awareness:68,running_lines:56,discipline:70,tenacity:48,scanning:66,positioning:64,
+ long_passing:72,handling:70,high_ball:55,offload:32,tackling:42,rucking:15,mauling:5,jackling:8,grubber:64,chipping:62,box_kicking:30,stepping:58,short_passing:74,touch_finder:68,
+ goal_kicking:74,scrum_drive:5,scrum_tech:5,jumping:22,lifting:5,
+ consistency:"Medium",big_game:"Medium",injury_prone:"Low",dirtiness:"Low",work_rate:"Medium",versatility:"High",professionalism:"High",ambition:"Medium",loyalty:"Medium",temperament:"Medium",
+ potential:74,form:60,fitness:100,morale:70,wage:4500,contract_end:2},
+
+{num:23,name:"Guy Porter",pos:"Outside Centre",posKey:"OC",age:27,nat:"England",ht:185,wt:96,
+ stopping_power:55,explosiveness:60,leg_drive:46,pace:70,acceleration:68,agility:64,strength:62,
+ aggression:52,composure:62,concentration:60,awareness:64,running_lines:60,discipline:66,tenacity:58,scanning:58,positioning:58,
+ long_passing:48,handling:64,high_ball:42,offload:42,tackling:68,rucking:28,mauling:12,jackling:12,grubber:30,chipping:32,box_kicking:8,stepping:60,short_passing:64,touch_finder:32,
+ goal_kicking:15,scrum_drive:5,scrum_tech:5,jumping:30,lifting:10,
+ consistency:"High",big_game:"Medium",injury_prone:"Low",dirtiness:"Low",work_rate:"High",versatility:"High",professionalism:"High",ambition:"Medium",loyalty:"Medium",temperament:"High",
+ potential:76,form:62,fitness:100,morale:70,wage:6000,contract_end:2},
+];
+
+// ══ STAT DISPLAY CONFIG ══
+const GROUPS = {
+    "Physical": ["stopping_power","explosiveness","leg_drive","pace","acceleration","agility","strength"],
+    "Mental": ["aggression","composure","concentration","awareness","running_lines","discipline","tenacity","scanning","positioning"],
+    "Technical": ["long_passing","handling","high_ball","offload","tackling","rucking","mauling","jackling","grubber","chipping","box_kicking","stepping","short_passing","touch_finder"],
+    "Set Piece": ["goal_kicking","scrum_drive","scrum_tech","jumping","lifting"],
+};
+const HIDDEN = ["consistency","big_game","injury_prone","dirtiness","work_rate","versatility","professionalism","ambition","loyalty","temperament"];
+const LABELS = {stopping_power:"Stopping Power",explosiveness:"Explosiveness",leg_drive:"Leg Drive",pace:"Pace",acceleration:"Acceleration",agility:"Agility",strength:"Strength",aggression:"Aggression",composure:"Composure",concentration:"Concentration",awareness:"Awareness",running_lines:"Running Lines",discipline:"Discipline",tenacity:"Tenacity",scanning:"Scanning",positioning:"Positioning",long_passing:"Long Passing",handling:"Handling",high_ball:"High Ball",offload:"Offload",tackling:"Tackling",rucking:"Rucking",mauling:"Mauling",jackling:"Jackling",grubber:"Grubber",chipping:"Chipping",box_kicking:"Box Kicking",stepping:"Stepping",short_passing:"Short Passing",touch_finder:"Touch Finder",goal_kicking:"Goal Kicking",scrum_drive:"Scrum Drive",scrum_tech:"Scrum Tech",jumping:"Jumping",lifting:"Lifting",consistency:"Consistency",big_game:"Big Game",injury_prone:"Injury Prone",dirtiness:"Dirtiness",work_rate:"Work Rate",versatility:"Versatility",professionalism:"Professionalism",ambition:"Ambition",loyalty:"Loyalty",temperament:"Temperament"};
+
+function tier(v){if(v>=80)return"hi";if(v>=60)return"gd";if(v>=40)return"md";return"lo"}
+function hTier(v){return v.toLowerCase()}
+
+function renderSquadList(){
+    const el=document.getElementById("squad-list");
+    const groups={"Front Row":["LH","HK","TH"],"Second Row":["LK"],"Back Row":["BF","OF","N8"],"Half Backs":["SH","FH"],"Centres":["IC","OC"],"Back Three":["LW","RW","FB"]};
+    let html="";
+    for(const[label,positions]of Object.entries(groups)){
+        html+=`<div class="squad-section"><h3>${label}</h3>`;
+        for(const p of SQUAD){
+            if(positions.includes(p.posKey)){
+                html+=`<div class="player-item" onclick="showPlayer(${p.num})" id="pi-${p.num}"><span>${p.name}</span><span class="pos">${p.posKey} #${p.num}</span></div>`;
+            }
+        }
+        html+=`</div>`;
+    }
+    el.innerHTML=html;
+}
+
+function showPlayer(num){
+    const p=SQUAD.find(x=>x.num===num);
+    if(!p)return;
+    // Highlight in list
+    document.querySelectorAll(".player-item").forEach(e=>e.classList.remove("active"));
+    const pi=document.getElementById("pi-"+num);
+    if(pi)pi.classList.add("active");
+
+    let html=`<div class="detail-header"><div><div class="detail-name">#${p.num} ${p.name}</div>
+    <div class="detail-meta"><span>${p.pos}</span><span>${p.age} yrs</span><span>${p.nat}</span><span>${p.ht}cm / ${p.wt}kg</span><span>Wage: £${p.wage.toLocaleString()}/wk</span><span>Contract: ${p.contract_end}yr</span></div></div></div>`;
+
+    // Status bar
+    html+=`<div class="stat-grid"><div class="stat-card" style="grid-column:span 2"><div style="display:flex;gap:24px;justify-content:center">`;
+    for(const[k,label]of[["form","Form"],["fitness","Fitness"],["morale","Morale"],["potential","Potential"]]){
+        const v=p[k];const t=tier(v);
+        html+=`<div style="text-align:center"><div style="font-size:0.62em;color:var(--text3);text-transform:uppercase;margin-bottom:2px">${label}</div><div class="s-val ${t}" style="font-size:1.1em">${v}</div></div>`;
+    }
+    html+=`</div></div></div>`;
+
+    // Stat groups
+    html+=`<div class="stat-grid">`;
+    for(const[group,stats]of Object.entries(GROUPS)){
+        html+=`<div class="stat-card"><h2>${group}</h2>`;
+        for(const s of stats){
+            const v=p[s]||0;const t=tier(v);
+            html+=`<div class="s-row ${t}"><span class="s-name">${LABELS[s]||s}</span><div class="s-bar"><div class="s-fill" style="width:${v}%"></div></div><span class="s-val">${v}</span></div>`;
+        }
+        html+=`</div>`;
+    }
+    html+=`</div>`;
+
+    // Hidden stats
+    html+=`<div class="stat-card wide"><h2>Hidden Attributes</h2><div class="hidden-grid">`;
+    for(const h of HIDDEN){
+        const v=p[h]||"Medium";const cls=hTier(v);
+        html+=`<div class="h-item"><div class="h-label">${LABELS[h]||h}</div><div class="h-val ${cls}">${v}</div></div>`;
+    }
+    html+=`</div></div>`;
+
+    document.getElementById("detail").innerHTML=html;
+}
+
+renderSquadList();
+// Auto-select Tommy Reffell
+showPlayer(7);
+</script>
+</body>
+</html>
