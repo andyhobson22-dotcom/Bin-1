@@ -121,6 +121,97 @@ const players = {
 const P = players;
 const all = [P.atk1, P.atk2, P.def1, P.def2];
 
+/* ═══════════════ PURE-ENGINE-START ═══════════════
+   Pure, testable contest resolvers. No DOM, no side effects.
+   Every number traces to a player stat. Extractable for headless
+   testing:  see runHarness() at the bottom of this block.        */
+
+function roll(n){return Math.floor(Math.random()*n)+1}
+function chance(p){return Math.random()*100<p}
+
+// Tuning constants (set from harness distributions — see commit log)
+const DEF_LINE_BONUS = 6;      // organised defender advantage
+const BREAK_THRESHOLD = 14;    // diff needed for a clean break
+const SMASH_THRESHOLD = -12;   // diff at/below which the hit is dominant
+const OFFLOAD_DIFFICULTY = 4;  // flat difficulty on offload attempts
+
+// Carriers attack to their strengths: a power runner (Curry) runs over,
+// an evasive runner (Reed) runs around. Use whichever profile is stronger.
+function carryProfile(atk) {
+    const power   = atk.strength*0.40 + atk.explosiveness*0.30 + atk.pace*0.15 + atk.agility*0.15;
+    const evasive = atk.stepping*0.40 + atk.agility*0.30 + atk.acceleration*0.15 + atk.pace*0.15;
+    return power >= evasive ? {score: power, style: "power"} : {score: evasive, style: "evasive"};
+}
+
+function tackleProfile(def) {
+    return def.tackling*0.35 + def.stopping_power*0.20 + def.awareness*0.20
+         + def.agility*0.15 + def.pace*0.10;
+}
+
+// Carry vs tackle contest.
+// Returns {outcome: "break"|"tackled"|"smashed", diff, style}
+function resolveCarryContest(atk, def) {
+    const a = carryProfile(atk);
+    const atkScore = a.score + roll(25) - 13;
+    const defScore = tackleProfile(def) + DEF_LINE_BONUS + roll(25) - 13;
+    const diff = atkScore - defScore;
+    let outcome;
+    if (diff > BREAK_THRESHOLD) outcome = "break";
+    else if (diff > SMASH_THRESHOLD) outcome = "tackled";
+    else outcome = "smashed";
+    return {outcome, diff, style: a.style};
+}
+
+// Does the tackled carrier even TRY the offload? Poor offloaders take
+// the tackle and set the ruck instead. Makes the Offload stat visible.
+function offloadAttemptChance(atk) {
+    return Math.max(10, Math.min(75, atk.offload*0.8 + atk.composure*0.2));
+}
+
+// Offload in the tackle vs the tackler killing the ball.
+// Returns {success, margin}
+function resolveOffloadContest(atk, def) {
+    const passScore = atk.offload*0.35 + atk.composure*0.25
+                    + atk.awareness*0.20 + atk.handling*0.20 + roll(20) - 10;
+    const killScore = def.awareness*0.30 + def.strength*0.30 + def.tackling*0.25
+                    + OFFLOAD_DIFFICULTY + roll(20) - 10;
+    return {success: passScore > killScore, margin: passScore - killScore};
+}
+
+// Headless distribution harness — run in the browser console or via node.
+// Prints outcome frequencies for every carrier/tackler matchup.
+function runHarness(n = 2000) {
+    const pairs = [
+        [players.atk1, players.def1], [players.atk1, players.def2],
+        [players.atk2, players.def1], [players.atk2, players.def2],
+    ];
+    const lines = [];
+    let totBreak = 0;
+    for (const [a, d] of pairs) {
+        const c = {break:0, tackled:0, smashed:0};
+        let offAtt = 0, offOk = 0;
+        for (let i = 0; i < n; i++) {
+            const r = resolveCarryContest(a, d);
+            c[r.outcome]++;
+            if (r.outcome === "tackled" && chance(offloadAttemptChance(a))) {
+                offAtt++;
+                if (resolveOffloadContest(a, d).success) offOk++;
+            }
+        }
+        totBreak += c.break;
+        lines.push(
+            `${a.name} vs ${d.name}: break ${(c.break/n*100).toFixed(1)}% | ` +
+            `tackled ${(c.tackled/n*100).toFixed(1)}% | smashed ${(c.smashed/n*100).toFixed(1)}% | ` +
+            `offload ${offAtt ? (offOk/offAtt*100).toFixed(1)+"%" : "n/a"} of ${offAtt} attempts`
+        );
+    }
+    lines.push(`AVERAGE break rate: ${(totBreak/(n*pairs.length)*100).toFixed(1)}%`);
+    const out = lines.join("\n");
+    console.log(out);
+    return out;
+}
+/* ═══════════════ PURE-ENGINE-END ═══════════════ */
+
 // ── Pitch constants ──
 const W = 800, H = 400;
 const TRY_LINE_R = 740; // right try line (attacking direction)
@@ -142,9 +233,6 @@ let ballX = 0, ballY = 0; // ball position when not held
 let actionQueue = [];
 let currentAction = null;
 let actionTimer = 0;
-
-function roll(n){return Math.floor(Math.random()*n)+1}
-function chance(p){return Math.random()*100<p}
 
 // ── Commentary ──
 function addComm(text, cls) {
@@ -338,19 +426,15 @@ function doRunning() {
 
 // 3. Tackle contest — stats vs stats
 function resolveTackle() {
-    const atkScore = carrier.stepping * 0.25 + carrier.agility * 0.2
-                   + carrier.pace * 0.15 + carrier.strength * 0.2
-                   + carrier.explosiveness * 0.2 + roll(25) - 12;
+    const contest = resolveCarryContest(carrier, tackler);
 
-    const defScore = tackler.tackling * 0.3 + tackler.stopping_power * 0.2
-                   + tackler.agility * 0.15 + tackler.awareness * 0.15
-                   + tackler.pace * 0.1 + tackler.strength * 0.1 + roll(25) - 12;
-
-    const diff = atkScore - defScore;
-
-    if (diff > 12) {
-        // BEATEN! Carrier steps past
-        addComm(`<b>${carrier.name}</b> beats <b>${tackler.name}</b> with a brilliant step!`);
+    if (contest.outcome === "break") {
+        // BEATEN! Carrier gets past — commentary reflects HOW he beat him
+        if (contest.style === "power") {
+            addComm(`<b>${carrier.name}</b> runs straight over <b>${tackler.name}</b>! Bounced off the tackle!`);
+        } else {
+            addComm(`<b>${carrier.name}</b> beats <b>${tackler.name}</b> with a brilliant step!`);
+        }
         // Carrier keeps going, tackler slides behind
         carrier.tx = Math.min(carrier.x + 150, TRY_LINE_R - 10);
         tackler.tx = carrier.x - 40;
@@ -366,7 +450,7 @@ function resolveTackle() {
         cover = tmp;
         phase = "running"; // keep running at next defender
     }
-    else if (diff > -5) {
+    else if (contest.outcome === "tackled") {
         // CONTACT — carrier is held but can try to pass/offload
         addComm(`<b>${tackler.name}</b> tackles <b>${carrier.name}</b>! Can he get the pass away?`, "tackle");
         phase = "tackling";
@@ -402,14 +486,17 @@ function doTackling() {
     actionTimer--;
     if (actionTimer > 0) return;
 
-    // Can carrier get the pass away?
-    const passScore = carrier.offload * 0.35 + carrier.composure * 0.25
-                    + carrier.awareness * 0.2 + carrier.handling * 0.2 + roll(20) - 10;
+    // Does he even attempt it? Poor offloaders take the tackle instead.
+    if (!chance(offloadAttemptChance(carrier))) {
+        addComm(`<b>${carrier.name}</b> takes the tackle and sets up the ruck.`);
+        phase = "resetting";
+        actionTimer = 40;
+        return;
+    }
 
-    const contestScore = tackler.awareness * 0.3 + tackler.strength * 0.3
-                       + tackler.tackling * 0.2 + roll(20) - 10;
-
-    if (passScore > contestScore) {
+    // He's trying it — offload vs the tackler killing the ball
+    const off = resolveOffloadContest(carrier, tackler);
+    if (off.success) {
         // PASS AWAY! Ball goes to support runner
         addComm(`<b>${carrier.name}</b> gets the offload away to <b>${support.name}</b>!`);
         carrier.hasBall = false;
@@ -426,8 +513,8 @@ function doTackling() {
         phase = "passing";
         actionTimer = 0;
     } else {
-        // Held in the tackle — ruck
-        addComm(`<b>${carrier.name}</b> is held. Ruck forms.`);
+        // Offload attempt killed by the tackler — ruck
+        addComm(`<b>${carrier.name}</b> looks for the offload but <b>${tackler.name}</b> wraps him up. Ruck forms.`);
         phase = "resetting";
         actionTimer = 40;
     }
