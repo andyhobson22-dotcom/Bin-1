@@ -66,14 +66,19 @@ canvas{display:block;max-width:100%;max-height:100%}
 <script>
 /*
   2v2 Rugby Simulator — CM-style state machine
-  
+  (double-click this file to open it in a browser — no server needed)
+
   Core loop:
-  1. Ball carrier RUNS forward toward defenders (dots move in real time)
+  1. Ball carrier RUNS forward toward defenders (dots move in real time);
+     the support runner holds depth BEHIND him, defenders track him laterally
   2. Carrier MEETS tackler — engine resolves: beat or tackled? (stats vs stats)
   3. If BEATEN — carrier keeps running past, defender slides behind
-  4. If TACKLED — carrier stops. Does he PASS/OFFLOAD before going down?
+  4. If TACKLED — both players go to ground. Does he PASS/OFFLOAD first?
   5. If PASS succeeds — ball moves to support runner, who runs at other defender
-  6. If no pass — ruck, then restart with same or new ball carrier
+  6. If no pass — RUCK: rucking+strength vs jackling contest decides
+     fast ball / slow ball / turnover / penalty, then play restarts
+  7. Every contest drains FATIGUE (bar under each name) — tired players
+     move slower and lose contests more often; idle time recovers a little
 
   All movement is smooth via requestAnimationFrame.
   The engine queues actions that play out visually over time.
@@ -87,7 +92,8 @@ const players = {
         stopping_power:78, explosiveness:80,
         awareness:80, composure:72, scanning:78,
         handling:65, offload:58, tackling:92, stepping:52,
-        short_passing:55,
+        short_passing:55, rucking:88, jackling:90, discipline:70,
+        fatigue:0, grounded:0,
         x:0, y:0, tx:0, ty:0, hasBall:true
     },
     atk2: {
@@ -96,7 +102,8 @@ const players = {
         stopping_power:32, explosiveness:88,
         awareness:55, composure:58, scanning:48,
         handling:62, offload:42, tackling:42, stepping:82,
-        short_passing:38,
+        short_passing:38, rucking:35, jackling:30, discipline:65,
+        fatigue:0, grounded:0,
         x:0, y:0, tx:0, ty:0, hasBall:false
     },
     def1: {
@@ -105,7 +112,8 @@ const players = {
         stopping_power:62, explosiveness:68,
         awareness:72, composure:58, scanning:72,
         handling:52, offload:45, tackling:85, stepping:38,
-        short_passing:42,
+        short_passing:42, rucking:82, jackling:94, discipline:62,
+        fatigue:0, grounded:0,
         x:0, y:0, tx:0, ty:0, hasBall:false
     },
     def2: {
@@ -114,7 +122,8 @@ const players = {
         stopping_power:35, explosiveness:70,
         awareness:78, composure:75, scanning:72,
         handling:75, offload:38, tackling:65, stepping:62,
-        short_passing:55,
+        short_passing:55, rucking:45, jackling:40, discipline:80,
+        fatigue:0, grounded:0,
         x:0, y:0, tx:0, ty:0, hasBall:false
     }
 };
@@ -135,6 +144,68 @@ const BREAK_THRESHOLD = 14;    // diff needed for a clean break
 const SMASH_THRESHOLD = -12;   // diff at/below which the hit is dominant
 const OFFLOAD_DIFFICULTY = 4;  // flat difficulty on offload attempts
 
+// ── Fatigue model (A.4) ──
+// fatigue runs 0 (fresh) → 100 (spent). At 100 a player loses
+// FATIGUE_CONTEST_SCALE points off every contest score and moves
+// FATIGUE_SPEED_SCALE (35%) slower.
+const FATIGUE_CONTEST_SCALE = 12;
+const FATIGUE_SPEED_SCALE = 0.35;
+
+function fatiguePenalty(p) {
+    return ((p.fatigue || 0) / 100) * FATIGUE_CONTEST_SCALE;
+}
+function fatigueSpeedFactor(p) {
+    return 1 - ((p.fatigue || 0) / 100) * FATIGUE_SPEED_SCALE;
+}
+
+// ── Ruck model (A.3) ──
+const RUCK_BALL_BONUS = 10;      // possession advantage: attack is over the ball first
+const RUCK_SUPPORT_WEIGHT = 0.5; // later arrivals contribute half weight
+const RUCK_FAST_THRESHOLD = 25;  // diff needed for quick ball
+const RUCK_TURNOVER_THRESHOLD = -18; // diff at/below which the ball is stolen
+const RUCK_FAST_FRAMES = 25;     // reset delay after quick ball
+const RUCK_SLOW_FRAMES = 80;     // reset delay after slow ball
+
+// First arriver counts fully, later arrivals at RUCK_SUPPORT_WEIGHT.
+// Attack clears with rucking + strength; defence contests with
+// jackling first, then rucking + strength.
+function ruckAttackScore(p) {
+    return p.rucking*0.55 + p.strength*0.45 - fatiguePenalty(p);
+}
+function ruckDefendScore(p) {
+    return p.jackling*0.55 + p.rucking*0.25 + p.strength*0.20 - fatiguePenalty(p);
+}
+
+// Discipline reduces penalty risk: an ill-disciplined side (worst
+// offender counts) gives away ruck penalties more often.
+function ruckPenaltyRisk(playersArr) {
+    const worst = Math.min(...playersArr.map(p => p.discipline));
+    return Math.max(0, (78 - worst) * 0.25); // % chance
+}
+
+// Ruck contest. atkPlayers/defPlayers: arrays ordered by arrival
+// (carrier/tackler first). defBonus: extra defensive momentum, e.g.
+// after a dominant hit. Returns {outcome, speed, diff, against?}
+// where outcome is "fast"|"slow"|"turnover"|"penalty" and speed is
+// the reset delay in frames the result earns.
+function resolveRuckContest(atkPlayers, defPlayers, defBonus = 0) {
+    // Infringement check first — jackler holding on / attacker sealing off.
+    // Defenders infringe more (hands in the ruck, not rolling away).
+    if (chance(ruckPenaltyRisk(defPlayers) * 1.4))
+        return {outcome:"penalty", against:"defence", speed:RUCK_SLOW_FRAMES, diff:0};
+    if (chance(ruckPenaltyRisk(atkPlayers)))
+        return {outcome:"penalty", against:"attack", speed:RUCK_SLOW_FRAMES, diff:0};
+
+    let atk = RUCK_BALL_BONUS, def = defBonus;
+    atkPlayers.forEach((p, i) => atk += ruckAttackScore(p) * (i === 0 ? 1 : RUCK_SUPPORT_WEIGHT));
+    defPlayers.forEach((p, i) => def += ruckDefendScore(p) * (i === 0 ? 1 : RUCK_SUPPORT_WEIGHT));
+    const diff = (atk + roll(40) - 20) - (def + roll(40) - 20);
+
+    if (diff <= RUCK_TURNOVER_THRESHOLD) return {outcome:"turnover", speed:RUCK_SLOW_FRAMES, diff};
+    if (diff >= RUCK_FAST_THRESHOLD)     return {outcome:"fast",     speed:RUCK_FAST_FRAMES, diff};
+    return {outcome:"slow", speed:RUCK_SLOW_FRAMES, diff};
+}
+
 // Carriers attack to their strengths: a power runner (Curry) runs over,
 // an evasive runner (Reed) runs around. Use whichever profile is stronger.
 function carryProfile(atk) {
@@ -152,8 +223,8 @@ function tackleProfile(def) {
 // Returns {outcome: "break"|"tackled"|"smashed", diff, style}
 function resolveCarryContest(atk, def) {
     const a = carryProfile(atk);
-    const atkScore = a.score + roll(25) - 13;
-    const defScore = tackleProfile(def) + DEF_LINE_BONUS + roll(25) - 13;
+    const atkScore = a.score - fatiguePenalty(atk) + roll(25) - 13;
+    const defScore = tackleProfile(def) - fatiguePenalty(def) + DEF_LINE_BONUS + roll(25) - 13;
     const diff = atkScore - defScore;
     let outcome;
     if (diff > BREAK_THRESHOLD) outcome = "break";
@@ -172,9 +243,10 @@ function offloadAttemptChance(atk) {
 // Returns {success, margin}
 function resolveOffloadContest(atk, def) {
     const passScore = atk.offload*0.35 + atk.composure*0.25
-                    + atk.awareness*0.20 + atk.handling*0.20 + roll(20) - 10;
+                    + atk.awareness*0.20 + atk.handling*0.20
+                    - fatiguePenalty(atk) + roll(20) - 10;
     const killScore = def.awareness*0.30 + def.strength*0.30 + def.tackling*0.25
-                    + OFFLOAD_DIFFICULTY + roll(20) - 10;
+                    + OFFLOAD_DIFFICULTY - fatiguePenalty(def) + roll(20) - 10;
     return {success: passScore > killScore, margin: passScore - killScore};
 }
 
@@ -206,6 +278,38 @@ function runHarness(n = 2000) {
         );
     }
     lines.push(`AVERAGE break rate: ${(totBreak/(n*pairs.length)*100).toFixed(1)}%`);
+
+    // ── Ruck outcome distributions (A.3) ──
+    lines.push("— Ruck contests (carrier+support vs jackler[+cover]) —");
+    const ruckSetups = [
+        ["Curry carry vs Reffell alone",    [players.atk1, players.atk2], [players.def1]],
+        ["Curry carry vs Reffell+Steward",  [players.atk1, players.atk2], [players.def1, players.def2]],
+        ["Reed carry vs Reffell alone",     [players.atk2, players.atk1], [players.def1]],
+        ["Reed carry vs Reffell+Steward",   [players.atk2, players.atk1], [players.def1, players.def2]],
+    ];
+    for (const [label, atkP, defP] of ruckSetups) {
+        const rc = {fast:0, slow:0, turnover:0, penalty:0};
+        for (let i = 0; i < n; i++) rc[resolveRuckContest(atkP, defP).outcome]++;
+        lines.push(
+            `${label}: fast ${(rc.fast/n*100).toFixed(1)}% | slow ${(rc.slow/n*100).toFixed(1)}% | ` +
+            `turnover ${(rc.turnover/n*100).toFixed(1)}% | penalty ${(rc.penalty/n*100).toFixed(1)}%`
+        );
+    }
+
+    // ── Fatigued vs fresh (A.4) — proves fatiguePenalty bites ──
+    const fresh = Object.assign({}, players.atk1, {fatigue:0});
+    const tired = Object.assign({}, players.atk1, {fatigue:100});
+    let freshBreaks = 0, tiredBreaks = 0;
+    for (let i = 0; i < n; i++) {
+        if (resolveCarryContest(fresh, players.def2).outcome === "break") freshBreaks++;
+        if (resolveCarryContest(tired, players.def2).outcome === "break") tiredBreaks++;
+    }
+    lines.push(
+        `— Fatigue check — Curry vs Steward: fresh break ${(freshBreaks/n*100).toFixed(1)}% vs ` +
+        `fatigued(100) break ${(tiredBreaks/n*100).toFixed(1)}% ` +
+        `(contest -${fatiguePenalty(tired).toFixed(0)} pts, speed x${fatigueSpeedFactor(tired).toFixed(2)})`
+    );
+
     const out = lines.join("\n");
     console.log(out);
     return out;
@@ -222,12 +326,32 @@ const ctx = canvas.getContext("2d");
 // ── State ──
 let score = {blue:0, red:0};
 let running = false;
-let phase = "idle"; // idle, running, tackling, passing, scoring, resetting
+let phase = "idle"; // idle, running, tackling, smash, rucking, passing, scoring, resetting
 let carrier = null;  // player with ball
 let support = null;  // support runner
 let tackler = null;   // nearest defender
 let cover = null;     // cover defender
 let ballX = 0, ballY = 0; // ball position when not held
+let supportSide = 1;       // which side the support runner holds depth on
+let ruckX = 0, ruckY = 0;  // where the ruck formed
+let ruckTimer = 0;         // frames left in the ruck contest
+let ruckDefBonus = 0;      // defensive momentum carried into the ruck (big hit)
+let coverContests = false; // did the cover defender arrive to contest?
+let fastBall = false;      // last ruck produced quick ball
+
+// Fatigue event costs (state layer — the pure block owns the penalties).
+// Big collisions cost more than routine involvements.
+const COST_CARRY = 6, COST_TACKLE = 6;       // routine carry / tackle
+const COST_BIG_HIT = 10, COST_SMASHED = 8;   // dominant collision
+const COST_BREAK_SPRINT = 4;                 // sprinting through the gap
+const COST_RUCK = 7, COST_OFFLOAD = 2;       // ruck involvement / offload
+const RECOVER_RATE = 0.08;                   // per idle/reset frame
+
+const GROUND_FRAMES = 45; // how long a tackled player stays flattened
+const DOMINANT_HIT_RUCK_BONUS = 12; // def momentum at the ruck after a smash
+
+function addFatigue(p, amt) { p.fatigue = Math.min(100, (p.fatigue||0) + amt); }
+function recoverFatigue(p, amt) { p.fatigue = Math.max(0, (p.fatigue||0) - amt); }
 
 // Action queue — engine pushes, renderer consumes
 let actionQueue = [];
@@ -261,6 +385,8 @@ function setupKickoff() {
     P.def2.x = P.def2.tx = 520; P.def2.y = P.def2.ty = 300;
     P.atk1.hasBall = true; P.atk2.hasBall = false;
     P.def1.hasBall = false; P.def2.hasBall = false;
+    for (const p of all) { p.fatigue = 0; p.grounded = 0; }
+    fastBall = false;
     carrier = P.atk1;
     support = P.atk2;
     tackler = P.def1;
@@ -285,26 +411,47 @@ function drawPitch() {
 
 function drawPlayer(p) {
     const r = 16;
-    // Glow if has ball
-    if (p.hasBall) {
-        ctx.beginPath(); ctx.arc(p.x,p.y,r+8,0,Math.PI*2);
-        ctx.fillStyle = "rgba(255,255,255,0.06)"; ctx.fill();
+    if (p.grounded > 0) {
+        // A.2: tackled player is on the deck — flattened, dimmed
+        ctx.save();
+        ctx.globalAlpha = 0.35;
+        ctx.beginPath(); ctx.ellipse(p.x, p.y, r*1.6, r*0.55, 0, 0, Math.PI*2);
+        ctx.fillStyle = p.color; ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.25)"; ctx.lineWidth = 1; ctx.stroke();
+        ctx.fillStyle = "white"; ctx.font = "bold 9px Inter";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(p.num, p.x, p.y);
+        ctx.restore();
+    } else {
+        // Glow if has ball
+        if (p.hasBall) {
+            ctx.beginPath(); ctx.arc(p.x,p.y,r+8,0,Math.PI*2);
+            ctx.fillStyle = "rgba(255,255,255,0.06)"; ctx.fill();
+        }
+        // Dot
+        ctx.beginPath(); ctx.arc(p.x,p.y,r,0,Math.PI*2);
+        ctx.fillStyle = p.color; ctx.globalAlpha = p.hasBall ? 1 : 0.6;
+        ctx.fill(); ctx.globalAlpha = 1;
+        // Border
+        ctx.strokeStyle = p.hasBall ? "white" : "rgba(255,255,255,0.2)";
+        ctx.lineWidth = p.hasBall ? 2 : 1;
+        ctx.stroke();
+        // Number
+        ctx.fillStyle = "white"; ctx.font = "bold 11px Inter";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(p.num, p.x, p.y);
     }
-    // Dot
-    ctx.beginPath(); ctx.arc(p.x,p.y,r,0,Math.PI*2);
-    ctx.fillStyle = p.color; ctx.globalAlpha = p.hasBall ? 1 : 0.6;
-    ctx.fill(); ctx.globalAlpha = 1;
-    // Border
-    ctx.strokeStyle = p.hasBall ? "white" : "rgba(255,255,255,0.2)";
-    ctx.lineWidth = p.hasBall ? 2 : 1;
-    ctx.stroke();
-    // Number
-    ctx.fillStyle = "white"; ctx.font = "bold 11px Inter";
-    ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(p.num, p.x, p.y);
     // Name
     ctx.font = "9px Inter"; ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText(p.name.split(" ").pop(), p.x, p.y + r + 12);
+    // A.4: fatigue bar under the name — shows energy LEFT (shrinks as he tires)
+    const fw = 26, fx = p.x - fw/2, fy = p.y + r + 18;
+    const frac = (p.fatigue || 0) / 100;
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(fx, fy, fw, 3);
+    ctx.fillStyle = frac < 0.4 ? "#22c55e" : frac < 0.7 ? "#eab308" : "#ef4444";
+    ctx.fillRect(fx, fy, fw * (1 - frac), 3);
 }
 
 function drawBall() {
@@ -327,6 +474,22 @@ function moveToward(p, speed) {
     return false;
 }
 
+// Fatigue-aware wrapper: tired players move slower (pure-block scale),
+// grounded players crawl at half pace (being driven / getting up).
+function movePlayer(p, speed) {
+    let s = speed * fatigueSpeedFactor(p);
+    if (p.grounded > 0) s *= 0.5;
+    return moveToward(p, s);
+}
+
+// Per-frame housekeeping: grounded timers tick down, idle time recovers fatigue
+function tickPlayers() {
+    for (const p of all) {
+        if (p.grounded > 0) p.grounded--;
+        if (phase === "resetting" || phase === "idle") recoverFatigue(p, RECOVER_RATE);
+    }
+}
+
 // ── Core game loop — runs every frame ──
 let lastTime = 0;
 const MOVE_SPEED = 2.5; // pixels per frame
@@ -337,12 +500,20 @@ function gameLoop(timestamp) {
     const dt = timestamp - lastTime;
     lastTime = timestamp;
 
+    tickPlayers();
+
     switch (phase) {
         case "running":
             doRunning();
             break;
         case "tackling":
             doTackling();
+            break;
+        case "smash":
+            doSmash();
+            break;
+        case "rucking":
+            doRucking();
             break;
         case "passing":
             doPassing();
@@ -378,31 +549,49 @@ function renderFrame() {
 // 1. Carrier runs forward toward the defender line
 function startRun() {
     phase = "running";
+    supportSide = carrier.y > H/2 ? -1 : 1;
     // Carrier runs forward
     carrier.tx = Math.min(carrier.x + 200, TRY_LINE_R - 20);
     carrier.ty = carrier.y + (Math.random()-0.5) * 40;
-    // Support runner drifts behind and wide
-    support.tx = carrier.x + 10;
-    support.ty = carrier.y + (carrier.y > H/2 ? -90 : 90);
-    // Tackler closes on carrier
-    tackler.tx = carrier.tx + 30;
-    tackler.ty = carrier.ty;
-    // Cover drifts toward support
-    cover.tx = support.tx + 60;
-    cover.ty = support.ty;
-
-    addComm(`<b>${carrier.name}</b> carries the ball forward...`);
+    // (support + defender targets are updated every frame in doRunning)
+    addComm(fastBall
+        ? `Quick recycle — <b>${carrier.name}</b> hits the line again!`
+        : `<b>${carrier.name}</b> carries the ball forward...`);
+    fastBall = false;
 }
 
 // 2. Everyone moves — check if carrier reaches tackler
 function doRunning() {
+    // A.2: support runner holds depth — always 30-60px BEHIND the carrier,
+    // tracking the carrier's y at a lateral offset, updated every frame
+    support.tx = carrier.x - 45;
+    support.ty = carrier.y + supportSide * 55;
+
+    // A.2: tackler tracks the carrier laterally with a reaction lag —
+    // higher Awareness = tighter tracking of the carrier's line
+    const track = 0.02 + (tackler.awareness / 100) * 0.08;
+    tackler.tx = carrier.x + 25;
+    tackler.ty += (carrier.y - tackler.ty) * track;
+
+    // Cover holds depth behind the tackler and marks the support runner
+    const coverTrack = 0.02 + (cover.awareness / 100) * 0.06;
+    cover.tx = tackler.x + 70;
+    cover.ty += (support.y - cover.ty) * coverTrack;
+
+    // Speeds trace to Pace; fatigue slows everyone (movePlayer)
     const carrierSpeed = MOVE_SPEED * (0.7 + carrier.pace / 200);
     const tacklerSpeed = MOVE_SPEED * (0.6 + tackler.pace / 250);
-    
-    moveToward(carrier, carrierSpeed);
-    moveToward(support, MOVE_SPEED * 0.8);
-    moveToward(tackler, tacklerSpeed);
-    moveToward(cover, MOVE_SPEED * 0.7);
+    const supportSpeed = MOVE_SPEED * (0.6 + support.pace / 250);
+
+    movePlayer(carrier, carrierSpeed);
+    movePlayer(support, supportSpeed);
+    movePlayer(tackler, tacklerSpeed);
+    movePlayer(cover, MOVE_SPEED * 0.7);
+
+    // Depth rule: support must never get ahead of the carrier
+    if (support.grounded <= 0 && support.x > carrier.x - 30) {
+        support.x = Math.max(support.x - MOVE_SPEED, carrier.x - 30);
+    }
 
     // Check if carrier and tackler are close enough for a contest
     const dx = carrier.x - tackler.x;
@@ -413,13 +602,13 @@ function doRunning() {
         // CONTACT! Resolve the tackle contest
         resolveTackle();
     }
-    
+
     // Check try
     if (carrier.x >= TRY_LINE_R - 20) {
         phase = "scoring";
         addComm(`<b>TRY!</b> <b>${carrier.name}</b> touches down!`, "try");
         flash("TRY!", "#22c55e");
-        score.blue += 7; updateUI();
+        score[[P.atk1, P.atk2].includes(carrier) ? "blue" : "red"] += 7; updateUI();
         actionTimer = 120; // frames to pause
     }
 }
@@ -435,12 +624,12 @@ function resolveTackle() {
         } else {
             addComm(`<b>${carrier.name}</b> beats <b>${tackler.name}</b> with a brilliant step!`);
         }
+        addFatigue(carrier, COST_BREAK_SPRINT);
+        addFatigue(tackler, COST_TACKLE * 0.5); // missed but still worked
         // Carrier keeps going, tackler slides behind
         carrier.tx = Math.min(carrier.x + 150, TRY_LINE_R - 10);
         tackler.tx = carrier.x - 40;
         tackler.ty = carrier.y + 30;
-        // Support follows
-        support.tx = carrier.x - 20;
         // Cover now has to come across
         cover.tx = carrier.tx + 20;
         cover.ty = carrier.ty;
@@ -451,34 +640,48 @@ function resolveTackle() {
         phase = "running"; // keep running at next defender
     }
     else if (contest.outcome === "tackled") {
-        // CONTACT — carrier is held but can try to pass/offload
+        // CONTACT — carrier is held but can try to pass/offload.
+        // A.2: both hit the deck — flattened, dimmed for GROUND_FRAMES
         addComm(`<b>${tackler.name}</b> tackles <b>${carrier.name}</b>! Can he get the pass away?`, "tackle");
+        addFatigue(carrier, COST_CARRY);
+        addFatigue(tackler, COST_TACKLE);
+        carrier.grounded = GROUND_FRAMES;
+        tackler.grounded = GROUND_FRAMES;
         phase = "tackling";
         actionTimer = 30; // brief pause in contact
         // Stop carrier movement
         carrier.tx = carrier.x;
+        tackler.tx = tackler.x;
     }
     else {
-        // SMASHED — dominant tackle, no chance to pass
+        // SMASHED — dominant tackle, no chance to pass. Big hits cost more.
         addComm(`HUGE HIT from <b>${tackler.name}</b>! <b>${carrier.name}</b> is smashed backwards!`, "tackle");
-        carrier.tx = carrier.x - 30;
-        tackler.tx = carrier.x;
-        // Turnover chance
-        if (chance(35)) {
-            setTimeout(() => {
-                addComm(`<b>TURNOVER!</b> <b>${tackler.name}</b> rips the ball free!`, "turnover");
-                flash("TURNOVER", "#f97316");
-                swapPossession();
-            }, 800);
-            phase = "resetting";
-            actionTimer = 60;
-        } else {
-            // Ruck — retain but go back to idle after pause
-            addComm(`<b>${carrier.name}</b> manages to recycle. Slow ball.`);
-            phase = "resetting";
-            actionTimer = 50;
-        }
+        addFatigue(carrier, COST_SMASHED);
+        addFatigue(tackler, COST_BIG_HIT);
+        carrier.grounded = GROUND_FRAMES;
+        tackler.grounded = GROUND_FRAMES;
+        // Driven back before the ruck forms
+        carrier.tx = carrier.x - 28;
+        carrier.ty = carrier.y;
+        tackler.tx = carrier.x - 12;
+        tackler.ty = carrier.y;
+        phase = "smash";
+        actionTimer = 25;
     }
+}
+
+// 3b. Aftermath of a dominant hit — carrier driven back, then the ruck
+// forms with the defence carrying momentum into it (A.3)
+function doSmash() {
+    actionTimer--;
+    movePlayer(carrier, MOVE_SPEED * 0.9);
+    movePlayer(tackler, MOVE_SPEED * 0.9);
+    // Support and cover react toward the collision
+    support.tx = carrier.x - 40; support.ty = carrier.y + supportSide * 30;
+    cover.tx = carrier.x + 50; cover.ty = carrier.y;
+    movePlayer(support, MOVE_SPEED * 0.8);
+    movePlayer(cover, MOVE_SPEED * 0.8);
+    if (actionTimer <= 0) startRuck(DOMINANT_HIT_RUCK_BONUS);
 }
 
 // 4. In the tackle — try to offload/pass
@@ -489,8 +692,7 @@ function doTackling() {
     // Does he even attempt it? Poor offloaders take the tackle instead.
     if (!chance(offloadAttemptChance(carrier))) {
         addComm(`<b>${carrier.name}</b> takes the tackle and sets up the ruck.`);
-        phase = "resetting";
-        actionTimer = 40;
+        startRuck(0);
         return;
     }
 
@@ -499,6 +701,7 @@ function doTackling() {
     if (off.success) {
         // PASS AWAY! Ball goes to support runner
         addComm(`<b>${carrier.name}</b> gets the offload away to <b>${support.name}</b>!`);
+        addFatigue(carrier, COST_OFFLOAD);
         carrier.hasBall = false;
         support.hasBall = true;
         // Swap roles
@@ -509,14 +712,90 @@ function doTackling() {
         const tmp = tackler;
         tackler = cover;
         cover = tmp;
-        
+
         phase = "passing";
         actionTimer = 0;
     } else {
         // Offload attempt killed by the tackler — ruck
-        addComm(`<b>${carrier.name}</b> looks for the offload but <b>${tackler.name}</b> wraps him up. Ruck forms.`);
+        addComm(`<b>${carrier.name}</b> looks for the offload but <b>${tackler.name}</b> wraps him up.`);
+        startRuck(0);
+    }
+}
+
+// ═══ RUCK MICRO-LOOP (A.3) ═══
+// Carrier + tackler converge over the ball; support (and cover, if he is
+// near enough) race in to contest. resolveRuckContest (pure block) decides.
+function startRuck(defBonus) {
+    phase = "rucking";
+    ruckDefBonus = defBonus || 0;
+    ruckTimer = 60;
+    ruckX = carrier.x; ruckY = carrier.y;
+    // Bodies converge/overlap at the ball
+    carrier.tx = ruckX - 6;  carrier.ty = ruckY;
+    tackler.tx = ruckX + 6;  tackler.ty = ruckY;
+    support.tx = ruckX - 26; support.ty = ruckY + 8;
+    // Cover only contests if he is close enough to arrive in time
+    const cdx = cover.x - ruckX, cdy = cover.y - ruckY;
+    coverContests = Math.sqrt(cdx*cdx + cdy*cdy) < 150;
+    if (coverContests) { cover.tx = ruckX + 26; cover.ty = ruckY - 8; }
+    addComm(`Ruck forms over the ball — <b>${tackler.name}</b> competing...`);
+}
+
+function doRucking() {
+    ruckTimer--;
+    // Everyone piles toward the ruck
+    movePlayer(carrier, MOVE_SPEED * 0.8);
+    movePlayer(tackler, MOVE_SPEED * 0.8);
+    movePlayer(support, MOVE_SPEED * (0.6 + support.pace / 250));
+    if (coverContests) movePlayer(cover, MOVE_SPEED * (0.6 + cover.pace / 250));
+    if (ruckTimer <= 0) resolveRuck();
+}
+
+function resolveRuck() {
+    const atkP = [carrier, support];
+    const defP = coverContests ? [tackler, cover] : [tackler];
+    const res = resolveRuckContest(atkP, defP, ruckDefBonus);
+    for (const p of atkP) addFatigue(p, COST_RUCK);
+    for (const p of defP) addFatigue(p, COST_RUCK);
+
+    fastBall = false;
+    if (res.outcome === "penalty") {
+        if (res.against === "defence") {
+            addComm(`<b>PENALTY!</b> <b>${defP[defP.length-1].name}</b> won't release — the attack marches 80px upfield.`, "penalty");
+            flash("PENALTY", "#eab308");
+            // Attack advances; defensive line retreats and reforms
+            carrier.tx = Math.min(carrier.x + 80, TRY_LINE_R - 60);
+            carrier.ty = ruckY;
+            tackler.tx = Math.min(carrier.tx + 140, TRY_LINE_R - 25); tackler.ty = ruckY;
+            cover.tx = Math.min(carrier.tx + 190, TRY_LINE_R - 15);   cover.ty = ruckY + 80;
+        } else {
+            addComm(`<b>PENALTY against the attack!</b> Sealing off at the ruck — possession handed over.`, "penalty");
+            flash("PENALTY", "#eab308");
+            swapPossession();
+        }
         phase = "resetting";
-        actionTimer = 40;
+        actionTimer = res.speed;
+    }
+    else if (res.outcome === "turnover") {
+        addComm(`<b>TURNOVER!</b> <b>${defP[0].name}</b> jackals it — steals the ball on the floor!`, "turnover");
+        flash("TURNOVER", "#f97316");
+        swapPossession();
+        phase = "resetting";
+        actionTimer = res.speed;
+    }
+    else {
+        // Ball retained — ruck speed sets the tempo of the next carry
+        fastBall = res.outcome === "fast";
+        if (fastBall) {
+            addComm(`<b>Quick ball!</b> <b>${carrier.name}</b> has it back in a flash.`);
+        } else {
+            addComm(`Slow ball... <b>${defP[0].name}</b> makes a mess of the ruck.`);
+        }
+        // Defensive line reforms in front of the ruck
+        tackler.tx = Math.min(carrier.x + 150, TRY_LINE_R - 25); tackler.ty = ruckY;
+        cover.tx = Math.min(carrier.x + 200, TRY_LINE_R - 15);   cover.ty = ruckY + (ruckY > H/2 ? -80 : 80);
+        phase = "resetting";
+        actionTimer = res.speed; // fast ball = shorter reset (A.3)
     }
 }
 
@@ -539,6 +818,7 @@ function doPassing() {
 function doScoring() {
     actionTimer--;
     carrier.tx = TRY_LINE_R;
+    movePlayer(carrier, MOVE_SPEED);
     if (actionTimer <= 0) {
         phase = "resetting";
         actionTimer = 60;
@@ -547,14 +827,15 @@ function doScoring() {
     }
 }
 
-// 7. Reset positions for next phase
+// 7. Reset positions for next phase — players actually walk into shape.
+// After QUICK ball the support runner starts at ideal depth (45 behind);
+// after slow ball he is deeper and has to work back up (A.3).
 function doResetting() {
     actionTimer--;
-    // Move everyone toward reset positions
-    const cx = carrier.x;
-    support.tx = cx - 40;
-    support.ty = carrier.y + (carrier.y > H/2 ? -80 : 80);
-    
+    support.tx = carrier.x - (fastBall ? 45 : 75);
+    support.ty = carrier.y + (carrier.y > H/2 ? -60 : 60);
+    for (const p of all) movePlayer(p, MOVE_SPEED * 0.8);
+
     if (actionTimer <= 0) {
         phase = "idle"; // triggers next action
     }
