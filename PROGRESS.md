@@ -4,6 +4,18 @@ Each improvement iteration appends an entry here. Newest at top.
 
 ---
 
+## Iteration 4 — FULL 15v15 MATCH SHIPPED (`full_match.html`)
+
+**Done:** Flagship build. Sale vs Leicester, 80 minutes, watchable dot sim. Proven 2v2 pure engine reused verbatim + pass chains, scrums, lineouts, mauls, high-ball contests, goal kicking, cards/sin-bins, injuries, subs, momentum. Both squads from the DB files; hidden stats live (Consistency wobble, Work Rate, Injury Proneness, Dirtiness). Formation model fixes the dot-stacking failure — only involved players leave their slots. Tactical pauses 20'/40'/60' with working dropdowns.
+
+**Evidence:** central 15-match headless run — avg 13.5 v 27.9, tries 1.7/3.7, penalties 10.4, turnovers 7.1, cards 0.53 (all real-rugby ranges). Screenshots inspected: formations hold at kickoff and in play, zero page errors over a full match. Commit `1b47e56`.
+
+**Roadmap state:** Phases A, B, C.8-ish, C.9, C.10 effectively covered by `full_match.html` + databases. `match_sim.html` fully superseded (candidate for deletion). Remaining: fold Match Centre commentary-first presentation in or retire `match_engine_demo.html`; Phase D season shell; Big Game hidden stat needs match-importance context.
+
+**Next task:** Phase D — season shell decision (HTML/localStorage league around full_match.html), or polish pass on full_match from owner feedback.
+
+---
+
 ## Iterations 2+3 (parallel agents) — Phase A complete + Leicester database
 
 **Done (agent 1, `sim_2v2.html`):** A.2 movement quality (support depth enforced, awareness-based defender tracking, players go to ground), A.3 ruck micro-loop (`resolveRuckContest` in pure block — fast/slow/turnover/penalty all stat-traced, replaced the magic 35% rip), A.4 fatigue (0–100, −12 contest pts and 35% slower at max, energy bars). Central verification: avg break 30.7%; Curry wins fast ball 53.8% vs lone jackler; isolated Reed into double coverage = 36.4% turnover; fatigued break rate 31%→5%. Commit `0985706`.
