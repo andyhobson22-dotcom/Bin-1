@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Full Match — Sale Sharks vs Leicester Tigers</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+:root{--bg:#0a0e13;--bg2:#12171e;--bg3:#1a2230;--text1:#f0f4f8;--text2:#94a3b8;--text3:#4a5568;--blue:#3b82f6;--red:#ef4444;--green:#22c55e;--yellow:#eab308;--border:#1e293b}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text1);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+.header{background:var(--bg2);border-bottom:1px solid var(--border);padding:8px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.header .team{font-size:1.05em;font-weight:800;width:220px}
+.header .team.home{text-align:right;color:var(--blue)}
+.header .team.away{text-align:left;color:var(--red)}
+.header .mid{text-align:center}
+.header .score{font-size:1.7em;font-weight:800;letter-spacing:2px}
+.header .clock{font-size:0.85em;color:var(--text2);font-weight:600}
+.header .phase-info{font-size:0.68em;color:var(--text3)}
+
+.main{flex:1;display:flex;min-height:0}
+.pitch-wrap{flex:1;display:flex;align-items:center;justify-content:center;background:#0d120d;position:relative;overflow:hidden;padding:6px}
+canvas{display:block;max-width:100%;max-height:100%}
+.event-label{position:absolute;top:45%;left:50%;transform:translate(-50%,-50%);font-size:2.4em;font-weight:800;opacity:0;pointer-events:none;transition:opacity 0.3s;text-shadow:0 2px 20px rgba(0,0,0,0.85)}
+.event-label.show{opacity:1}
+
+.sidebar{width:230px;background:var(--bg2);border-left:1px solid var(--border);padding:12px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.sidebar h3{font-size:0.7em;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:2px}
+.stat-row{display:flex;justify-content:space-between;font-size:0.78em;padding:3px 0;border-bottom:1px solid var(--border)}
+.stat-row .lbl{color:var(--text2)}
+.stat-row .h{color:var(--blue);font-weight:700;width:40px;text-align:right}
+.stat-row .a{color:var(--red);font-weight:700;width:40px}
+
+.comm-area{background:var(--bg2);border-top:1px solid var(--border);height:132px;overflow-y:auto;padding:8px 16px;display:flex;flex-direction:column;gap:1px}
+.comm{font-size:0.74em;line-height:1.4;color:var(--text2);padding:1px 0}
+.comm b{color:var(--text1);font-weight:600}
+.comm .min{color:var(--text3);font-weight:600;margin-right:6px}
+.comm.try{color:var(--green);font-weight:600}
+.comm.turnover{color:#f97316;font-weight:600}
+.comm.tackle{color:var(--yellow)}
+.comm.penalty{color:var(--yellow);font-weight:600}
+.comm.card{color:var(--yellow);font-weight:700}
+.comm.red-card{color:var(--red);font-weight:700}
+.comm.score-ev{color:var(--green)}
+.comm.injury{color:#f97316}
+
+.controls{background:var(--bg2);border-top:1px solid var(--border);padding:7px 16px;display:flex;gap:8px;align-items:center;justify-content:center}
+.btn{padding:7px 18px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-family:inherit;font-size:0.8em;font-weight:600;cursor:pointer}
+.btn:hover{background:#2563eb}
+.btn.dim{background:var(--bg3)}
+.btn.dim.active{background:#334155;outline:1px solid var(--blue)}
+.speed-label{font-size:0.7em;color:var(--text3)}
+
+.overlay{position:absolute;inset:0;background:rgba(10,14,19,0.88);display:none;align-items:center;justify-content:center;z-index:10}
+.overlay.show{display:flex}
+.overlay .panel{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:28px 34px;width:420px}
+.overlay h2{font-size:1.2em;margin-bottom:4px}
+.overlay .sub{font-size:0.78em;color:var(--text2);margin-bottom:16px}
+.tac-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.tac-row label{font-size:0.8em;color:var(--text2)}
+.tac-row select{background:var(--bg3);color:var(--text1);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-family:inherit;font-size:0.8em}
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div class="team home">Sale Sharks</div>
+    <div class="mid">
+        <div class="score" id="score">0 - 0</div>
+        <div class="clock" id="clock">00:00 &middot; 1st Half</div>
+        <div class="phase-info" id="phase-info">Kick off</div>
+    </div>
+    <div class="team away">Leicester Tigers</div>
+</div>
+
+<div class="main">
+    <div class="pitch-wrap">
+        <canvas id="pitch" width="1040" height="560"></canvas>
+        <div class="event-label" id="flash"></div>
+        <div class="overlay" id="overlay">
+            <div class="panel">
+                <h2 id="ov-title">Tactical Pause</h2>
+                <div class="sub" id="ov-sub">Adjust Sale Sharks' game plan, then resume.</div>
+                <div class="tac-row"><label>Kick frequency</label>
+                    <select id="tac-kick"><option value="rarely">Rarely</option><option value="sometimes" selected>Sometimes</option><option value="often">Often</option></select></div>
+                <div class="tac-row"><label>Attacking width</label>
+                    <select id="tac-width"><option value="tight">Tight</option><option value="balanced" selected>Balanced</option><option value="wide">Wide</option></select></div>
+                <div class="tac-row"><label>Breakdown commitment</label>
+                    <select id="tac-commit"><option value="low">Low</option><option value="med" selected>Medium</option><option value="high">High</option></select></div>
+                <button class="btn" style="width:100%;margin-top:8px" onclick="resumeFromOverlay()">Resume Match</button>
+            </div>
+        </div>
+    </div>
+    <div class="sidebar">
+        <h3>Match Stats</h3>
+        <div class="stat-row"><span class="h" id="st-poss-h">50%</span><span class="lbl">Possession</span><span class="a" id="st-poss-a">50%</span></div>
+        <div class="stat-row"><span class="h" id="st-terr-h">50%</span><span class="lbl">Territory</span><span class="a" id="st-terr-a">50%</span></div>
+        <div class="stat-row"><span class="h" id="st-tries-h">0</span><span class="lbl">Tries</span><span class="a" id="st-tries-a">0</span></div>
+        <div class="stat-row"><span class="h" id="st-tack-h">0</span><span class="lbl">Tackles</span><span class="a" id="st-tack-a">0</span></div>
+        <div class="stat-row"><span class="h" id="st-to-h">0</span><span class="lbl">Turnovers won</span><span class="a" id="st-to-a">0</span></div>
+        <div class="stat-row"><span class="h" id="st-pen-h">0</span><span class="lbl">Penalties conceded</span><span class="a" id="st-pen-a">0</span></div>
+        <h3 style="margin-top:8px">Momentum</h3>
+        <canvas id="mom-bar" width="200" height="10"></canvas>
+    </div>
+</div>
+
+<div class="comm-area" id="comm"></div>
+
+<div class="controls">
+    <button class="btn" id="btn-start" onclick="startMatch()">Kick Off</button>
+    <button class="btn dim" id="btn-pause" onclick="togglePause()">Pause</button>
+    <span class="speed-label">Speed:</span>
+    <button class="btn dim" id="sp-slow" onclick="setSpeed('slow')">Slow</button>
+    <button class="btn dim active" id="sp-normal" onclick="setSpeed('normal')">Normal</button>
+    <button class="btn dim" id="sp-fast" onclick="setSpeed('fast')">Fast</button>
+</div>
+
+<script>
+/*
+  FULL MATCH SIMULATOR — Sale Sharks vs Leicester Tigers, 15v15, 80 minutes.
+  Double-click this file to open it in a browser. No server needed.
+
+  Architecture (BRIEF §4 — CM3-style discrete event state machine):
+   - DATA:   both 23-man squads, verbatim from sale_sharks_db.html / leicester_db.html
+   - ENGINE: pure contest resolvers (copied from the proven sim_2v2.html PURE-ENGINE
+             block, then extended with pass/scrum/lineout/kick/goal resolvers) plus
+             the headless match state machine matchStep(). No DOM in this section —
+             runHarness(20) simulates 20 full matches and prints score distributions.
+   - UI:     canvas dot visualiser with a FORMATION MODEL. Every player has a
+             role-based home slot relative to the ball; only the 2-4 players involved
+             in the current micro-event leave their slot. This is the fix for the
+             failed match_sim.html where all 30 dots collapsed onto the ball.
+*/
+
+/* ═══════════════════════ DATA ═══════════════════════ */
+const SALE_SQUAD = [
+
+// ══ FRONT ROW ══
+{num:1,name:"Bevan Rodd",pos:"Loosehead Prop",posKey:"LH",age:23,nat:"England",ht:185,wt:118,
+ // Physical
+ stopping_power:68,explosiveness:38,leg_drive:75,pace:32,acceleration:34,agility:28,strength:80,
+ // Mental
+ aggression:62,composure:52,concentration:58,awareness:42,running_lines:18,discipline:60,tenacity:68,scanning:35,positioning:48,
+ // Technical
+ long_passing:15,handling:35,high_ball:12,offload:25,tackling:62,rucking:60,mauling:68,jackling:18,grubber:5,chipping:5,box_kicking:5,stepping:12,short_passing:30,touch_finder:10,
+ // Set Piece
+ goal_kicking:5,scrum_drive:78,scrum_tech:72,jumping:20,lifting:55,
+ // Hidden
+ consistency:"High",big_game:"Medium",injury_prone:"Medium",dirtiness:"Low",work_rate:"High",versatility:"Low",professionalism:"High",ambition:"Medium",loyalty:"High",temperament:"High",
+ // Meta
+ potential:78,form:65,fitness:100,morale:72,wage:8000,contract_end:3},
+
+{num:2,name:"Luke Cowan-Dickie",pos:"Hooker",posKey:"HK",age:31,nat:"England",ht:180,wt:112,
+ stopping_power:58,explosiveness:48,leg_drive:60,pace:42,acceleration:45,agility:38,strength:72,
+ aggression:72,composure:55,concentration:52,awareness:60,running_lines:35,discipline:48,tenacity:72,scanning:62,positioning:50,
+ long_passing:18,handling:52,high_ball:15,offload:42,tackling:72,rucking:68,mauling:62,jackling:30,grubber:5,chipping:5,box_kicking:5,stepping:22,short_passing:40,touch_finder:12,
+ goal_kicking:5,scrum_drive:68,scrum_tech:58,jumping:58,lifting:48,
+ consistency:"Medium",big_game:"High",injury_prone:"High",dirtiness:"Medium",work_rate:"Elite",versatility:"Low",professionalism:"Medium",ambition:"Low",loyalty:"Medium",temperament:"Medium",
+ potential:72,form:60,fitness:92,morale:68,wage:10000,contract_end:2},
+
+{num:3,name:"Nick Schonert",pos:"Tighthead Prop",posKey:"TH",age:33,nat:"England",ht:185,wt:125,
+ stopping_power:75,explosiveness:32,leg_drive:80,pace:28,acceleration:28,agility:22,strength:85,
+ aggression:65,composure:58,concentration:62,awareness:40,running_lines:12,discipline:68,tenacity:72,scanning:32,positioning:52,
+ long_passing:10,handling:30,high_ball:8,offload:18,tackling:65,rucking:62,mauling:72,jackling:12,grubber:5,chipping:5,box_kicking:5,stepping:8,short_passing:22,touch_finder:8,
+ goal_kicking:5,scrum_drive:82,scrum_tech:78,jumping:18,lifting:58,
+ consistency:"Elite",big_game:"Medium",injury_prone:"Medium",dirtiness:"Low",work_rate:"High",versatility:"Low",professionalism:"Elite",ambition:"Low",loyalty:"Elite",temperament:"High",
+ potential:82,form:68,fitness:95,morale:75,wage:9000,contract_end:1},
+
+// ══ SECOND ROW ══
+{num:4,name:"Jonny Hill",pos:"Lock",posKey:"LK",age:30,nat:"England",ht:198,wt:115,
+ stopping_power:55,explosiveness:38,leg_drive:62,pace:35,acceleration:34,agility:30,strength:72,
+ aggression:68,composure:52,concentration:55,awareness:50,running_lines:22,discipline:50,tenacity:70,scanning:42,positioning:52,
+ long_passing:12,handling:38,high_ball:42,offload:28,tackling:68,rucking:65,mauling:70,jackling:22,grubber:5,chipping:5,box_kicking:5,stepping:15,short_passing:28,touch_finder:10,
+ goal_kicking:5,scrum_drive:55,scrum_tech:50,jumping:82,lifting:75,
+ consistency:"Medium",big_game:"High",injury_prone:"Medium",dirtiness:"Medium",work_rate:"High",versatility:"Low",professionalism:"Medium",ambition:"Medium",loyalty:"Medium",temperament:"Medium",
+ potential:75,form:62,fitness:100,morale:70,wage:9500,contract_end:2},
+
+{num:5,name:"JP du Preez",pos:"Lock",posKey:"LK",age:30,nat:"South Africa",ht:201,wt:118,
+ stopping_power:62,explosiveness:40,leg_drive:65,pace:34,acceleration:32,agility:28,strength:78,
+ aggression:70,composure:50,concentration:52,awareness:48,running_lines:25,discipline:52,tenacity:75,scanning:40,positioning:50,
+ long_passing:12,handling:42,high_ball:45,offload:45,tackling:65,rucking:68,mauling:72,jackling:25,grubber:5,chipping:5,box_kicking:5,stepping:15,short_passing:30,touch_finder:8,
+ goal_kicking:5,scrum_drive:58,scrum_tech:48,jumping:78,lifting:70,
+ consistency:"Medium",big_game:"Medium",injury_prone:"Medium",dirtiness:"Low",work_rate:"High",versatility:"Low",professionalism:"High",ambition:"Low",loyalty:"High",temperament:"High",
+ potential:78,form:65,fitness:98,morale:72,wage:11000,contract_end:2},
+
+// ══ BACK ROW ══
+{num:6,name:"Ben Curry",pos:"Blindside Flanker",posKey:"BF",age:26,nat:"England",ht:185,wt:105,
+ stopping_power:65,explosiveness:72,leg_drive:65,pace:68,acceleration:70,agility:62,strength:72,
+ aggression:78,composure:58,concentration:68,awareness:72,running_lines:48,discipline:60,tenacity:85,scanning:65,positioning:68,
+ long_passing:22,handling:52,high_ball:30,offload:40,tackling:82,rucking:78,mauling:55,jackling:68,grubber:8,chipping:8,box_kicking:5,stepping:35,short_passing:40,touch_finder:15,
+ goal_kicking:5,scrum_drive:52,scrum_tech:45,jumping:58,lifting:48,
+ consistency:"High",big_game:"High",injury_prone:"Medium",dirtiness:"Low",work_rate:"Elite",versatility:"Medium",professionalism:"Elite",ambition:"Medium",loyalty:"Elite",temperament:"High",
+ potential:82,form:70,fitness:100,morale:78,wage:10000,contract_end:3},
+
+{num:7,name:"Tom Curry",pos:"Openside Flanker",posKey:"OF",age:26,nat:"England",ht:185,wt:110,
+ stopping_power:78,explosiveness:80,leg_drive:76,pace:74,acceleration:78,agility:68,strength:82,
+ aggression:85,composure:72,concentration:78,awareness:80,running_lines:68,discipline:72,tenacity:92,scanning:78,positioning:82,
+ long_passing:25,handling:65,high_ball:55,offload:58,tackling:92,rucking:88,mauling:68,jackling:90,grubber:10,chipping:8,box_kicking:5,stepping:52,short_passing:48,touch_finder:18,
+ goal_kicking:5,scrum_drive:58,scrum_tech:50,jumping:62,lifting:48,
+ consistency:"Elite",big_game:"Elite",injury_prone:"High",dirtiness:"Low",work_rate:"Elite",versatility:"High",professionalism:"Elite",ambition:"High",loyalty:"High",temperament:"Elite",
+ potential:92,form:72,fitness:95,morale:75,wage:14000,contract_end:3},
+
+{num:8,name:"Dan du Preez",pos:"Number Eight",posKey:"N8",age:29,nat:"South Africa",ht:193,wt:112,
+ stopping_power:72,explosiveness:62,leg_drive:68,pace:58,acceleration:55,agility:48,strength:78,
+ aggression:70,composure:55,concentration:55,awareness:58,running_lines:52,discipline:55,tenacity:72,scanning:50,positioning:55,
+ long_passing:22,handling:58,high_ball:32,offload:55,tackling:72,rucking:72,mauling:68,jackling:38,grubber:8,chipping:8,box_kicking:5,stepping:32,short_passing:42,touch_finder:12,
+ goal_kicking:5,scrum_drive:62,scrum_tech:48,jumping:45,lifting:40,
+ consistency:"Medium",big_game:"Medium",injury_prone:"Low",dirtiness:"Low",work_rate:"High",versatility:"Medium",professionalism:"High",ambition:"Low",loyalty:"High",temperament:"High",
+ potential:75,form:62,fitness:100,morale:70,wage:10000,contract_end:2},
+
+// ══ HALF BACKS ══
+{num:9,name:"Raffi Quirke",pos:"Scrum Half",posKey:"SH",age:24,nat:"England",ht:175,wt:82,
+ stopping_power:22,explosiveness:78,leg_drive:30,pace:78,acceleration:82,agility:80,strength:38,
+ aggression:58,composure:62,concentration:65,awareness:68,running_lines:55,discipline:62,tenacity:68,scanning:70,positioning:62,
+ long_passing:72,handling:72,high_ball:25,offload:30,tackling:45,rucking:38,mauling:10,jackling:20,grubber:48,chipping:42,box_kicking:68,stepping:65,short_passing:78,touch_finder:45,
+ goal_kicking:15,scrum_drive:10,scrum_tech:10,jumping:18,lifting:10,
+ consistency:"Medium",big_game:"Medium",injury_prone:"Medium",dirtiness:"Low",work_rate:"High",versatility:"Low",professionalism:"High",ambition:"High",loyalty:"High",temperament:"Medium",
+ potential:82,form:68,fitness:100,morale:75,wage:8000,contract_end:3},
+
+{num:10,name:"George Ford",pos:"Fly Half",posKey:"FH",age:31,nat:"England",ht:178,wt:85,
+ stopping_power:22,explosiveness:55,leg_drive:25,pace:58,acceleration:60,agility:70,strength:38,
+ aggression:35,composure:88,concentration:82,awareness:90,running_lines:65,discipline:82,tenacity:55,scanning:88,positioning:72,
+ long_passing:90,handling:78,high_ball:58,offload:35,tackling:42,rucking:18,mauling:8,jackling:10,grubber:82,chipping:78,box_kicking:35,stepping:62,short_passing:90,touch_finder:88,
+ goal_kicking:90,scrum_drive:5,scrum_tech:5,jumping:22,lifting:8,
+ consistency:"Elite",big_game:"Elite",injury_prone:"Medium",dirtiness:"Low",work_rate:"Medium",versatility:"Medium",professionalism:"Elite",ambition:"Medium",loyalty:"Medium",temperament:"Elite",
+ potential:90,form:75,fitness:98,morale:80,wage:15000,contract_end:2},
+
+// ══ CENTRES ══
+{num:12,name:"Sam James",pos:"Inside Centre",posKey:"IC",age:28,nat:"England",ht:183,wt:92,
+ stopping_power:52,explosiveness:62,leg_drive:48,pace:68,acceleration:68,agility:68,strength:62,
+ aggression:50,composure:65,concentration:62,awareness:68,running_lines:62,discipline:65,tenacity:60,scanning:58,positioning:60,
+ long_passing:55,handling:70,high_ball:42,offload:48,tackling:70,rucking:32,mauling:15,jackling:15,grubber:32,chipping:35,box_kicking:10,stepping:62,short_passing:72,touch_finder:35,
+ goal_kicking:18,scrum_drive:8,scrum_tech:8,jumping:30,lifting:12,
+ consistency:"High",big_game:"Medium",injury_prone:"Low",dirtiness:"Low",work_rate:"High",versatility:"Medium",professionalism:"High",ambition:"Low",loyalty:"High",temperament:"High",
+ potential:72,form:68,fitness:100,morale:72,wage:7500,contract_end:2},
+
+{num:13,name:"Rob du Preez",pos:"Outside Centre",posKey:"OC",age:30,nat:"South Africa",ht:188,wt:98,
+ stopping_power:58,explosiveness:60,leg_drive:50,pace:70,acceleration:68,agility:65,strength:65,
+ aggression:55,composure:62,concentration:58,awareness:62,running_lines:58,discipline:60,tenacity:58,scanning:55,positioning:58,
+ long_passing:62,handling:65,high_ball:48,offload:45,tackling:65,rucking:28,mauling:12,jackling:12,grubber:38,chipping:40,box_kicking:10,stepping:65,short_passing:68,touch_finder:42,
+ goal_kicking:72,scrum_drive:8,scrum_tech:8,jumping:32,lifting:12,
+ consistency:"Medium",big_game:"Medium",injury_prone:"Low",dirtiness:"Low",work_rate:"Medium",versatility:"High",professionalism:"High",ambition:"Low",loyalty:"Medium",temperament:"High",
+ potential:72,form:62,fitness:100,morale:68,wage:9000,contract_end:1},
+
+// ══ BACK THREE ══
+{num:11,name:"Tom Roebuck",pos:"Left Wing",posKey:"LW",age:23,nat:"England",ht:190,wt:98,
+ stopping_power:42,explosiveness:82,leg_drive:35,pace:88,acceleration:85,agility:78,strength:55,
+ aggression:48,composure:55,concentration:52,awareness:55,running_lines:62,discipline:58,tenacity:55,scanning:48,positioning:55,
+ long_passing:22,handling:68,high_ball:65,offload:38,tackling:48,rucking:18,mauling:8,jackling:8,grubber:28,chipping:32,box_kicking:5,stepping:72,short_passing:35,touch_finder:25,
+ goal_kicking:10,scrum_drive:5,scrum_tech:5,jumping:52,lifting:8,
+ consistency:"Medium",big_game:"Medium",injury_prone:"Low",dirtiness:"Low",work_rate:"Medium",versatility:"Low",professionalism:"High",ambition:"High",loyalty:"High",temperament:"Medium",
+ potential:80,form:65,fitness:100,morale:72,wage:6000,contract_end:4},
+
+{num:14,name:"Arron Reed",pos:"Right Wing",posKey:"RW",age:25,nat:"England",ht:178,wt:82,
+ stopping_power:28,explosiveness:90,leg_drive:25,pace:94,acceleration:92,agility:88,strength:42,
+ aggression:38,composure:55,concentration:52,awareness:52,running_lines:62,discipline:58,tenacity:48,scanning:45,positioning:55,
+ long_passing:18,handling:62,high_ball:55,offload:35,tackling:40,rucking:12,mauling:5,jackling:5,grubber:30,chipping:35,box_kicking:5,stepping:85,short_passing:35,touch_finder:22,
+ goal_kicking:8,scrum_drive:5,scrum_tech:5,jumping:42,lifting:5,
+ consistency:"Medium",big_game:"Medium",injury_prone:"Low",dirtiness:"Low",work_rate:"Medium",versatility:"Low",professionalism:"Medium",ambition:"Medium",loyalty:"Medium",temperament:"Medium",
+ potential:78,form:68,fitness:100,morale:70,wage:5000,contract_end:3},
+
+{num:15,name:"Joe Carpenter",pos:"Fullback",posKey:"FB",age:23,nat:"England",ht:183,wt:88,
+ stopping_power:32,explosiveness:72,leg_drive:30,pace:78,acceleration:75,agility:75,strength:42,
+ aggression:35,composure:68,concentration:65,awareness:72,running_lines:62,discipline:68,tenacity:55,scanning:70,positioning:72,
+ long_passing:42,handling:72,high_ball:78,offload:32,tackling:52,rucking:15,mauling:5,jackling:8,grubber:48,chipping:45,box_kicking:18,stepping:60,short_passing:55,touch_finder:65,
+ goal_kicking:55,scrum_drive:5,scrum_tech:5,jumping:48,lifting:8,
+ consistency:"Medium",big_game:"Medium",injury_prone:"Low",dirtiness:"Low",work_rate:"High",versatility:"Medium",professionalism:"High",ambition:"High",loyalty:"High",temperament:"High",
+ potential:80,form:65,fitness:100,morale:72,wage:5500,contract_end:4},
+
+// ══ BENCH ══
+{num:16,name:"Ethan Mayfield",pos:"Hooker",posKey:"HK",age:22,nat:"England",ht:178,wt:108,
+ stopping_power:50,explosiveness:42,leg_drive:52,pace:38,acceleration:40,agility:35,strength:65,
+ aggression:60,composure:48,concentration:48,awareness:45,running_lines:20,discipline:55,tenacity:62,scanning:42,positioning:42,
+ long_passing:12,handling:42,high_ball:10,offload:25,tackling:58,rucking:55,mauling:55,jackling:20,grubber:5,chipping:5,box_kicking:5,stepping:15,short_passing:32,touch_finder:8,
+ goal_kicking:5,scrum_drive:60,scrum_tech:52,jumping:48,lifting:42,
+ consistency:"Medium",big_game:"Low",injury_prone:"Low",dirtiness:"Low",work_rate:"High",versatility:"Low",professionalism:"High",ambition:"High",loyalty:"High",temperament:"Medium",
+ potential:72,form:55,fitness:100,morale:68,wage:3500,contract_end:4},
+
+{num:17,name:"Simon McIntyre",pos:"Loosehead Prop",posKey:"LH",age:33,nat:"England",ht:183,wt:120,
+ stopping_power:65,explosiveness:30,leg_drive:70,pace:28,acceleration:28,agility:22,strength:78,
+ aggression:60,composure:58,concentration:60,awareness:42,running_lines:12,discipline:65,tenacity:68,scanning:30,positioning:48,
+ long_passing:8,handling:28,high_ball:8,offload:15,tackling:60,rucking:58,mauling:65,jackling:12,grubber:5,chipping:5,box_kicking:5,stepping:8,short_passing:22,touch_finder:8,
+ goal_kicking:5,scrum_drive:72,scrum_tech:68,jumping:15,lifting:52,
+ consistency:"High",big_game:"Medium",injury_prone:"Medium",dirtiness:"Low",work_rate:"High",versatility:"Low",professionalism:"Elite",ambition:"Low",loyalty:"Elite",temperament:"Elite",
+ potential:72,form:60,fitness:95,morale:72,wage:7000,contract_end:1},
+
+{num:18,name:"Asher Mayfield",pos:"Tighthead Prop",posKey:"TH",age:22,nat:"England",ht:187,wt:122,
+ stopping_power:62,explosiveness:30,leg_drive:68,pace:26,acceleration:26,agility:22,strength:75,
+ aggression:58,composure:48,concentration:50,awareness:38,running_lines:10,discipline:58,tenacity:62,scanning:28,positioning:42,
+ long_passing:8,handling:25,high_ball:5,offload:15,tackling:55,rucking:52,mauling:60,jackling:10,grubber:5,chipping:5,box_kicking:5,stepping:8,short_passing:20,touch_finder:5,
+ goal_kicking:5,scrum_drive:72,scrum_tech:65,jumping:15,lifting:50,
+ consistency:"Medium",big_game:"Low",injury_prone:"Low",dirtiness:"Low",work_rate:"High",versatility:"Low",professionalism:"High",ambition:"High",loyalty:"High",temperament:"Medium",
+ potential:78,form:55,fitness:100,morale:68,wage:3000,contract_end:4},
+
+{num:19,name:"Josh Beaumont",pos:"Lock",posKey:"LK",age:31,nat:"England",ht:196,wt:112,
+ stopping_power:52,explosiveness:35,leg_drive:55,pace:32,acceleration:30,agility:28,strength:68,
+ aggression:62,composure:58,concentration:60,awareness:52,running_lines:22,discipline:68,tenacity:68,scanning:48,positioning:55,
+ long_passing:15,handling:42,high_ball:40,offload:28,tackling:65,rucking:62,mauling:62,jackling:22,grubber:5,chipping:5,box_kicking:5,stepping:12,short_passing:30,touch_finder:8,
+ goal_kicking:5,scrum_drive:52,scrum_tech:48,jumping:72,lifting:68,
+ consistency:"High",big_game:"Medium",injury_prone:"High",dirtiness:"Low",work_rate:"High",versatility:"Medium",professionalism:"Elite",ambition:"Low",loyalty:"Elite",temperament:"Elite",
+ potential:68,form:58,fitness:90,morale:72,wage:8000,contract_end:1},
+
+{num:20,name:"Jonny Ross",pos:"Blindside Flanker",posKey:"BF",age:24,nat:"Scotland",ht:188,wt:102,
+ stopping_power:58,explosiveness:62,leg_drive:58,pace:62,acceleration:62,agility:55,strength:65,
+ aggression:72,composure:50,concentration:55,awareness:58,running_lines:40,discipline:52,tenacity:72,scanning:52,positioning:55,
+ long_passing:18,handling:42,high_ball:25,offload:32,tackling:70,rucking:68,mauling:48,jackling:55,grubber:5,chipping:5,box_kicking:5,stepping:28,short_passing:35,touch_finder:10,
+ goal_kicking:5,scrum_drive:45,scrum_tech:40,jumping:50,lifting:42,
+ consistency:"Medium",big_game:"Low",injury_prone:"Low",dirtiness:"Medium",work_rate:"Elite",versatility:"Medium",professionalism:"High",ambition:"High",loyalty:"Medium",temperament:"Medium",
+ potential:75,form:60,fitness:100,morale:68,wage:4500,contract_end:3},
+
+{num:21,name:"Gus Mayfield",pos:"Scrum Half",posKey:"SH",age:21,nat:"England",ht:173,wt:78,
+ stopping_power:18,explosiveness:70,leg_drive:22,pace:72,acceleration:75,agility:75,strength:32,
+ aggression:50,composure:55,concentration:55,awareness:60,running_lines:48,discipline:62,tenacity:58,scanning:62,positioning:55,
+ long_passing:65,handling:65,high_ball:20,offload:22,tackling:38,rucking:30,mauling:5,jackling:15,grubber:42,chipping:38,box_kicking:62,stepping:55,short_passing:72,touch_finder:40,
+ goal_kicking:10,scrum_drive:5,scrum_tech:5,jumping:15,lifting:8,
+ consistency:"Medium",big_game:"Low",injury_prone:"Low",dirtiness:"Low",work_rate:"High",versatility:"Low",professionalism:"High",ambition:"High",loyalty:"High",temperament:"Medium",
+ potential:78,form:58,fitness:100,morale:72,wage:2500,contract_end:4},
+
+{num:22,name:"Luke James",pos:"Fly Half",posKey:"FH",age:22,nat:"England",ht:180,wt:84,
+ stopping_power:20,explosiveness:52,leg_drive:22,pace:55,acceleration:58,agility:65,strength:35,
+ aggression:32,composure:60,concentration:62,awareness:68,running_lines:55,discipline:70,tenacity:45,scanning:68,positioning:62,
+ long_passing:70,handling:68,high_ball:48,offload:28,tackling:38,rucking:15,mauling:5,jackling:8,grubber:62,chipping:60,box_kicking:28,stepping:52,short_passing:72,touch_finder:65,
+ goal_kicking:68,scrum_drive:5,scrum_tech:5,jumping:20,lifting:5,
+ consistency:"Medium",big_game:"Low",injury_prone:"Low",dirtiness:"Low",work_rate:"Medium",versatility:"Medium",professionalism:"High",ambition:"High",loyalty:"High",temperament:"Medium",
+ potential:78,form:55,fitness:100,morale:70,wage:3000,contract_end:4},
+
+{num:23,name:"Tom Curtis",pos:"Outside Centre",posKey:"OC",age:24,nat:"England",ht:185,wt:95,
+ stopping_power:48,explosiveness:58,leg_drive:42,pace:68,acceleration:65,agility:65,strength:58,
+ aggression:48,composure:58,concentration:55,awareness:58,running_lines:55,discipline:60,tenacity:52,scanning:50,positioning:52,
+ long_passing:45,handling:60,high_ball:38,offload:38,tackling:62,rucking:25,mauling:10,jackling:10,grubber:28,chipping:30,box_kicking:8,stepping:60,short_passing:62,touch_finder:30,
+ goal_kicking:15,scrum_drive:5,scrum_tech:5,jumping:28,lifting:10,
+ consistency:"Medium",big_game:"Low",injury_prone:"Low",dirtiness:"Low",work_rate:"Medium",versatility:"Medium",professionalism:"High",ambition:"Medium",loyalty:"High",temperament:"Medium",
+ potential:72,form:58,fitness:100,morale:68,wage:3500,contract_end:3},
+];
+const LEIC_SQUAD = [
+
+// ══ FRONT ROW ══
+{num:1,name:"Ellis Genge",pos:"Loosehead Prop",posKey:"LH",age:29,nat:"England",ht:185,wt:120,
+ // Physical
+ stopping_power:78,explosiveness:68,leg_drive:85,pace:45,acceleration:50,agility:40,strength:90,
+ // Mental
+ aggression:90,composure:55,concentration:58,awareness:55,running_lines:30,discipline:52,tenacity:82,scanning:42,positioning:52,
+ // Technical
+ long_passing:18,handling:48,high_ball:15,offload:45,tackling:72,rucking:72,mauling:75,jackling:25,grubber:5,chipping:5,box_kicking:5,stepping:30,short_passing:38,touch_finder:10,
+ // Set Piece
+ goal_kicking:5,scrum_drive:85,scrum_tech:80,jumping:22,lifting:60,
+ // Hidden
+ consistency:"High",big_game:"Elite",injury_prone:"Medium",dirtiness:"Medium",work_rate:"High",versatility:"Low",professionalism:"High",ambition:"High",loyalty:"Medium",temperament:"Medium",
+ // Meta
+ potential:90,form:74,fitness:98,morale:76,wage:16000,contract_end:3},
+
+{num:2,name:"Julian Montoya",pos:"Hooker",posKey:"HK",age:31,nat:"Argentina",ht:178,wt:112,
+ stopping_power:68,explosiveness:58,leg_drive:68,pace:45,acceleration:48,agility:42,strength:80,
+ aggression:80,composure:68,concentration:70,awareness:65,running_lines:38,discipline:62,tenacity:88,scanning:68,positioning:60,
+ long_passing:20,handling:55,high_ball:18,offload:42,tackling:82,rucking:78,mauling:78,jackling:55,grubber:5,chipping:5,box_kicking:5,stepping:25,short_passing:42,touch_finder:12,
+ goal_kicking:5,scrum_drive:75,scrum_tech:68,jumping:55,lifting:52,
+ consistency:"Elite",big_game:"Elite",injury_prone:"Low",dirtiness:"Low",work_rate:"Elite",versatility:"Low",professionalism:"Elite",ambition:"High",loyalty:"High",temperament:"Elite",
+ potential:88,form:76,fitness:100,morale:80,wage:15000,contract_end:2},
+
+{num:3,name:"Dan Cole",pos:"Tighthead Prop",posKey:"TH",age:37,nat:"England",ht:191,wt:128,
+ stopping_power:78,explosiveness:25,leg_drive:78,pace:22,acceleration:22,agility:18,strength:85,
+ aggression:62,composure:70,concentration:72,awareness:55,running_lines:10,discipline:72,tenacity:75,scanning:38,positioning:58,
+ long_passing:8,handling:30,high_ball:8,offload:18,tackling:68,rucking:68,mauling:75,jackling:30,grubber:5,chipping:5,box_kicking:5,stepping:5,short_passing:22,touch_finder:8,
+ goal_kicking:5,scrum_drive:84,scrum_tech:93,jumping:15,lifting:55,
+ consistency:"Elite",big_game:"High",injury_prone:"Low",dirtiness:"Low",work_rate:"Medium",versatility:"Low",professionalism:"Elite",ambition:"Low",loyalty:"Elite",temperament:"Elite",
+ potential:80,form:68,fitness:92,morale:78,wage:11000,contract_end:1},
+
+// ══ SECOND ROW ══
+{num:4,name:"Ollie Chessum",pos:"Lock",posKey:"LK",age:24,nat:"England",ht:200,wt:118,
+ stopping_power:68,explosiveness:58,leg_drive:70,pace:50,acceleration:48,agility:42,strength:80,
+ aggression:75,composure:62,concentration:66,awareness:65,running_lines:35,discipline:62,tenacity:80,scanning:55,positioning:62,
+ long_passing:15,handling:55,high_ball:50,offload:40,tackling:78,rucking:78,mauling:74,jackling:32,grubber:5,chipping:5,box_kicking:5,stepping:20,short_passing:35,touch_finder:10,
+ goal_kicking:5,scrum_drive:62,scrum_tech:55,jumping:85,lifting:78,
+ consistency:"High",big_game:"Elite",injury_prone:"Medium",dirtiness:"Low",work_rate:"Elite",versatility:"High",professionalism:"Elite",ambition:"High",loyalty:"High",temperament:"High",
+ potential:90,form:72,fitness:96,morale:78,wage:13000,contract_end:3},
+
+{num:5,name:"George Martin",pos:"Lock",posKey:"LK",age:23,nat:"England",ht:198,wt:118,
+ stopping_power:80,explosiveness:62,leg_drive:72,pace:48,acceleration:46,agility:40,strength:85,
+ aggression:88,composure:55,concentration:60,awareness:58,running_lines:28,discipline:55,tenacity:82,scanning:48,positioning:58,
+ long_passing:12,handling:48,high_ball:45,offload:32,tackling:82,rucking:80,mauling:75,jackling:28,grubber:5,chipping:5,box_kicking:5,stepping:18,short_passing:30,touch_finder:8,
+ goal_kicking:5,scrum_drive:60,scrum_tech:52,jumping:78,lifting:74,
+ consistency:"Medium",big_game:"Elite",injury_prone:"Medium",dirtiness:"Medium",work_rate:"High",versatility:"Medium",professionalism:"High",ambition:"High",loyalty:"High",temperament:"Medium",
+ potential:92,form:70,fitness:100,morale:75,wage:12000,contract_end:4},
+
+// ══ BACK ROW ══
+{num:6,name:"Hanro Liebenberg",pos:"Blindside Flanker",posKey:"BF",age:29,nat:"South Africa",ht:195,wt:110,
+ stopping_power:75,explosiveness:62,leg_drive:68,pace:60,acceleration:60,agility:52,strength:78,
+ aggression:78,composure:62,concentration:65,awareness:65,running_lines:45,discipline:62,tenacity:82,scanning:58,positioning:64,
+ long_passing:20,handling:55,high_ball:42,offload:45,tackling:82,rucking:78,mauling:65,jackling:55,grubber:8,chipping:5,box_kicking:5,stepping:30,short_passing:40,touch_finder:12,
+ goal_kicking:5,scrum_drive:55,scrum_tech:48,jumping:70,lifting:55,
+ consistency:"High",big_game:"High",injury_prone:"Low",dirtiness:"Low",work_rate:"Elite",versatility:"Medium",professionalism:"Elite",ambition:"Medium",loyalty:"Elite",temperament:"High",
+ potential:82,form:72,fitness:100,morale:78,wage:11000,contract_end:2},
+
+{num:7,name:"Tommy Reffell",pos:"Openside Flanker",posKey:"OF",age:25,nat:"Wales",ht:183,wt:100,
+ stopping_power:68,explosiveness:70,leg_drive:65,pace:68,acceleration:72,agility:65,strength:72,
+ aggression:82,composure:68,concentration:76,awareness:76,running_lines:55,discipline:68,tenacity:92,scanning:72,positioning:76,
+ long_passing:22,handling:60,high_ball:45,offload:50,tackling:88,rucking:85,mauling:60,jackling:88,grubber:8,chipping:8,box_kicking:5,stepping:45,short_passing:45,touch_finder:15,
+ goal_kicking:5,scrum_drive:52,scrum_tech:46,jumping:58,lifting:46,
+ consistency:"Elite",big_game:"High",injury_prone:"Low",dirtiness:"Low",work_rate:"Elite",versatility:"Medium",professionalism:"Elite",ambition:"High",loyalty:"High",temperament:"Elite",
+ potential:88,form:78,fitness:100,morale:82,wage:12000,contract_end:3},
+
+{num:8,name:"Jasper Wiese",pos:"Number Eight",posKey:"N8",age:29,nat:"South Africa",ht:186,wt:116,
+ stopping_power:90,explosiveness:75,leg_drive:82,pace:60,acceleration:62,agility:50,strength:88,
+ aggression:90,composure:52,concentration:55,awareness:55,running_lines:48,discipline:48,tenacity:85,scanning:45,positioning:52,
+ long_passing:15,handling:55,high_ball:30,offload:55,tackling:78,rucking:75,mauling:70,jackling:35,grubber:5,chipping:5,box_kicking:5,stepping:35,short_passing:38,touch_finder:8,
+ goal_kicking:5,scrum_drive:62,scrum_tech:50,jumping:42,lifting:40,
+ consistency:"High",big_game:"High",injury_prone:"Low",dirtiness:"Medium",work_rate:"High",versatility:"Low",professionalism:"High",ambition:"Medium",loyalty:"High",temperament:"Medium",
+ potential:86,form:75,fitness:100,morale:74,wage:14000,contract_end:1},
+
+// ══ HALF BACKS ══
+{num:9,name:"Jack van Poortvliet",pos:"Scrum Half",posKey:"SH",age:23,nat:"England",ht:180,wt:88,
+ stopping_power:30,explosiveness:68,leg_drive:32,pace:72,acceleration:76,agility:74,strength:45,
+ aggression:52,composure:68,concentration:70,awareness:72,running_lines:55,discipline:70,tenacity:65,scanning:74,positioning:65,
+ long_passing:76,handling:74,high_ball:28,offload:32,tackling:52,rucking:35,mauling:8,jackling:18,grubber:55,chipping:48,box_kicking:80,stepping:60,short_passing:82,touch_finder:52,
+ goal_kicking:12,scrum_drive:8,scrum_tech:8,jumping:18,lifting:8,
+ consistency:"High",big_game:"Medium",injury_prone:"Medium",dirtiness:"Low",work_rate:"High",versatility:"Low",professionalism:"Elite",ambition:"High",loyalty:"High",temperament:"High",
+ potential:87,form:70,fitness:98,morale:75,wage:9000,contract_end:4},
+
+{num:10,name:"Handré Pollard",pos:"Fly Half",posKey:"FH",age:30,nat:"South Africa",ht:183,wt:96,
+ stopping_power:55,explosiveness:55,leg_drive:45,pace:55,acceleration:56,agility:58,strength:68,
+ aggression:55,composure:92,concentration:85,awareness:84,running_lines:60,discipline:80,tenacity:68,scanning:82,positioning:74,
+ long_passing:85,handling:78,high_ball:62,offload:38,tackling:68,rucking:25,mauling:10,jackling:12,grubber:75,chipping:74,box_kicking:40,stepping:50,short_passing:86,touch_finder:88,
+ goal_kicking:93,scrum_drive:5,scrum_tech:5,jumping:25,lifting:8,
+ consistency:"Elite",big_game:"Elite",injury_prone:"Medium",dirtiness:"Low",work_rate:"Medium",versatility:"Medium",professionalism:"Elite",ambition:"Medium",loyalty:"Medium",temperament:"Elite",
+ potential:92,form:76,fitness:96,morale:80,wage:18000,contract_end:2},
+
+// ══ CENTRES ══
+{num:12,name:"Dan Kelly",pos:"Inside Centre",posKey:"IC",age:23,nat:"England",ht:185,wt:98,
+ stopping_power:62,explosiveness:62,leg_drive:55,pace:66,acceleration:66,agility:62,strength:70,
+ aggression:58,composure:64,concentration:62,awareness:66,running_lines:62,discipline:64,tenacity:66,scanning:60,positioning:60,
+ long_passing:55,handling:68,high_ball:45,offload:52,tackling:76,rucking:35,mauling:15,jackling:18,grubber:35,chipping:35,box_kicking:8,stepping:58,short_passing:70,touch_finder:35,
+ goal_kicking:20,scrum_drive:8,scrum_tech:8,jumping:30,lifting:12,
+ consistency:"Medium",big_game:"Medium",injury_prone:"Medium",dirtiness:"Low",work_rate:"High",versatility:"Medium",professionalism:"High",ambition:"Medium",loyalty:"High",temperament:"High",
+ potential:82,form:66,fitness:95,morale:72,wage:7500,contract_end:3},
+
+{num:13,name:"Solomone Kata",pos:"Outside Centre",posKey:"OC",age:29,nat:"Tonga",ht:183,wt:105,
+ stopping_power:82,explosiveness:78,leg_drive:62,pace:76,acceleration:74,agility:62,strength:82,
+ aggression:72,composure:52,concentration:50,awareness:55,running_lines:58,discipline:52,tenacity:65,scanning:45,positioning:52,
+ long_passing:35,handling:62,high_ball:48,offload:58,tackling:70,rucking:30,mauling:15,jackling:15,grubber:22,chipping:25,box_kicking:5,stepping:62,short_passing:55,touch_finder:20,
+ goal_kicking:8,scrum_drive:8,scrum_tech:8,jumping:35,lifting:12,
+ consistency:"Medium",big_game:"High",injury_prone:"Low",dirtiness:"Medium",work_rate:"Medium",versatility:"Medium",professionalism:"Medium",ambition:"Medium",loyalty:"Medium",temperament:"Medium",
+ potential:80,form:70,fitness:100,morale:74,wage:9500,contract_end:2},
+
+// ══ BACK THREE ══
+{num:11,name:"Ollie Hassell-Collins",pos:"Left Wing",posKey:"LW",age:25,nat:"England",ht:185,wt:94,
+ stopping_power:45,explosiveness:84,leg_drive:40,pace:90,acceleration:88,agility:82,strength:58,
+ aggression:45,composure:55,concentration:52,awareness:56,running_lines:68,discipline:58,tenacity:55,scanning:50,positioning:52,
+ long_passing:22,handling:66,high_ball:58,offload:45,tackling:45,rucking:20,mauling:8,jackling:10,grubber:30,chipping:32,box_kicking:5,stepping:82,short_passing:40,touch_finder:22,
+ goal_kicking:8,scrum_drive:5,scrum_tech:5,jumping:50,lifting:8,
+ consistency:"Medium",big_game:"Medium",injury_prone:"Low",dirtiness:"Low",work_rate:"Medium",versatility:"Low",professionalism:"Medium",ambition:"High",loyalty:"Medium",temperament:"Medium",
+ potential:84,form:68,fitness:100,morale:72,wage:9000,contract_end:2},
+
+{num:14,name:"Adam Radwan",pos:"Right Wing",posKey:"RW",age:26,nat:"England",ht:183,wt:88,
+ stopping_power:32,explosiveness:92,leg_drive:28,pace:95,acceleration:93,agility:88,strength:45,
+ aggression:38,composure:52,concentration:50,awareness:52,running_lines:62,discipline:58,tenacity:48,scanning:45,positioning:52,
+ long_passing:18,handling:62,high_ball:52,offload:38,tackling:38,rucking:12,mauling:5,jackling:5,grubber:28,chipping:32,box_kicking:5,stepping:88,short_passing:35,touch_finder:20,
+ goal_kicking:8,scrum_drive:5,scrum_tech:5,jumping:45,lifting:5,
+ consistency:"Medium",big_game:"Medium",injury_prone:"Medium",dirtiness:"Low",work_rate:"Medium",versatility:"Low",professionalism:"Medium",ambition:"High",loyalty:"Medium",temperament:"Medium",
+ potential:82,form:66,fitness:100,morale:70,wage:7000,contract_end:2},
+
+{num:15,name:"Freddie Steward",pos:"Fullback",posKey:"FB",age:23,nat:"England",ht:196,wt:102,
+ stopping_power:55,explosiveness:62,leg_drive:48,pace:74,acceleration:68,agility:60,strength:68,
+ aggression:42,composure:74,concentration:76,awareness:76,running_lines:60,discipline:74,tenacity:62,scanning:74,positioning:86,
+ long_passing:55,handling:76,high_ball:92,offload:35,tackling:62,rucking:18,mauling:8,jackling:8,grubber:52,chipping:50,box_kicking:25,stepping:55,short_passing:58,touch_finder:72,
+ goal_kicking:45,scrum_drive:5,scrum_tech:5,jumping:65,lifting:10,
+ consistency:"Elite",big_game:"High",injury_prone:"Low",dirtiness:"Low",work_rate:"High",versatility:"Medium",professionalism:"Elite",ambition:"High",loyalty:"High",temperament:"Elite",
+ potential:90,form:74,fitness:100,morale:78,wage:12000,contract_end:4},
+
+// ══ BENCH ══
+{num:16,name:"Charlie Clare",pos:"Hooker",posKey:"HK",age:28,nat:"England",ht:183,wt:105,
+ stopping_power:55,explosiveness:45,leg_drive:55,pace:40,acceleration:42,agility:36,strength:68,
+ aggression:65,composure:50,concentration:52,awareness:48,running_lines:22,discipline:55,tenacity:66,scanning:48,positioning:46,
+ long_passing:12,handling:45,high_ball:12,offload:28,tackling:62,rucking:60,mauling:62,jackling:25,grubber:5,chipping:5,box_kicking:5,stepping:16,short_passing:34,touch_finder:8,
+ goal_kicking:5,scrum_drive:62,scrum_tech:55,jumping:50,lifting:45,
+ consistency:"Medium",big_game:"Low",injury_prone:"Low",dirtiness:"Low",work_rate:"High",versatility:"Low",professionalism:"High",ambition:"Medium",loyalty:"High",temperament:"Medium",
+ potential:72,form:58,fitness:100,morale:68,wage:4500,contract_end:2},
+
+{num:17,name:"James Whitcombe",pos:"Loosehead Prop",posKey:"LH",age:24,nat:"England",ht:184,wt:118,
+ stopping_power:62,explosiveness:36,leg_drive:66,pace:30,acceleration:32,agility:26,strength:76,
+ aggression:60,composure:48,concentration:52,awareness:42,running_lines:15,discipline:58,tenacity:64,scanning:32,positioning:45,
+ long_passing:10,handling:32,high_ball:10,offload:20,tackling:58,rucking:56,mauling:62,jackling:15,grubber:5,chipping:5,box_kicking:5,stepping:10,short_passing:26,touch_finder:8,
+ goal_kicking:5,scrum_drive:70,scrum_tech:62,jumping:18,lifting:52,
+ consistency:"Medium",big_game:"Low",injury_prone:"Low",dirtiness:"Low",work_rate:"High",versatility:"Low",professionalism:"High",ambition:"High",loyalty:"High",temperament:"Medium",
+ potential:78,form:56,fitness:100,morale:66,wage:3500,contract_end:3},
+
+{num:18,name:"Joe Heyes",pos:"Tighthead Prop",posKey:"TH",age:25,nat:"England",ht:189,wt:126,
+ stopping_power:72,explosiveness:40,leg_drive:76,pace:30,acceleration:30,agility:26,strength:82,
+ aggression:66,composure:58,concentration:60,awareness:48,running_lines:15,discipline:62,tenacity:72,scanning:38,positioning:52,
+ long_passing:10,handling:38,high_ball:8,offload:24,tackling:64,rucking:62,mauling:70,jackling:18,grubber:5,chipping:5,box_kicking:5,stepping:10,short_passing:26,touch_finder:8,
+ goal_kicking:5,scrum_drive:78,scrum_tech:74,jumping:18,lifting:55,
+ consistency:"High",big_game:"Medium",injury_prone:"Low",dirtiness:"Low",work_rate:"High",versatility:"Low",professionalism:"High",ambition:"High",loyalty:"Elite",temperament:"High",
+ potential:84,form:66,fitness:100,morale:74,wage:8000,contract_end:3},
+
+{num:19,name:"Cameron Henderson",pos:"Lock",posKey:"LK",age:26,nat:"Scotland",ht:198,wt:116,
+ stopping_power:58,explosiveness:42,leg_drive:60,pace:38,acceleration:36,agility:32,strength:72,
+ aggression:64,composure:54,concentration:56,awareness:52,running_lines:24,discipline:60,tenacity:68,scanning:46,positioning:52,
+ long_passing:14,handling:44,high_ball:42,offload:30,tackling:66,rucking:64,mauling:66,jackling:24,grubber:5,chipping:5,box_kicking:5,stepping:14,short_passing:30,touch_finder:8,
+ goal_kicking:5,scrum_drive:54,scrum_tech:48,jumping:76,lifting:70,
+ consistency:"Medium",big_game:"Medium",injury_prone:"Medium",dirtiness:"Low",work_rate:"High",versatility:"Medium",professionalism:"High",ambition:"Medium",loyalty:"Medium",temperament:"High",
+ potential:76,form:60,fitness:94,morale:68,wage:5500,contract_end:2},
+
+{num:20,name:"Olly Cracknell",pos:"Blindside Flanker",posKey:"BF",age:30,nat:"Wales",ht:190,wt:108,
+ stopping_power:66,explosiveness:58,leg_drive:62,pace:58,acceleration:58,agility:50,strength:72,
+ aggression:76,composure:54,concentration:56,awareness:56,running_lines:40,discipline:54,tenacity:76,scanning:50,positioning:56,
+ long_passing:18,handling:46,high_ball:28,offload:36,tackling:74,rucking:70,mauling:55,jackling:48,grubber:5,chipping:5,box_kicking:5,stepping:28,short_passing:36,touch_finder:10,
+ goal_kicking:5,scrum_drive:50,scrum_tech:44,jumping:52,lifting:44,
+ consistency:"High",big_game:"Medium",injury_prone:"Low",dirtiness:"Medium",work_rate:"Elite",versatility:"High",professionalism:"High",ambition:"Low",loyalty:"High",temperament:"High",
+ potential:72,form:62,fitness:100,morale:70,wage:5500,contract_end:1},
+
+{num:21,name:"Ben Youngs",pos:"Scrum Half",posKey:"SH",age:35,nat:"England",ht:178,wt:90,
+ stopping_power:30,explosiveness:55,leg_drive:28,pace:55,acceleration:58,agility:62,strength:42,
+ aggression:45,composure:80,concentration:74,awareness:82,running_lines:55,discipline:74,tenacity:58,scanning:80,positioning:66,
+ long_passing:78,handling:76,high_ball:30,offload:35,tackling:48,rucking:30,mauling:8,jackling:15,grubber:58,chipping:55,box_kicking:82,stepping:55,short_passing:85,touch_finder:55,
+ goal_kicking:15,scrum_drive:5,scrum_tech:5,jumping:15,lifting:8,
+ consistency:"High",big_game:"Elite",injury_prone:"Low",dirtiness:"Low",work_rate:"Medium",versatility:"Low",professionalism:"Elite",ambition:"Low",loyalty:"Elite",temperament:"Elite",
+ potential:78,form:64,fitness:94,morale:76,wage:9000,contract_end:1},
+
+{num:22,name:"Jamie Shillcock",pos:"Fly Half",posKey:"FH",age:27,nat:"England",ht:178,wt:85,
+ stopping_power:25,explosiveness:58,leg_drive:24,pace:62,acceleration:62,agility:68,strength:38,
+ aggression:35,composure:64,concentration:62,awareness:68,running_lines:56,discipline:70,tenacity:48,scanning:66,positioning:64,
+ long_passing:72,handling:70,high_ball:55,offload:32,tackling:42,rucking:15,mauling:5,jackling:8,grubber:64,chipping:62,box_kicking:30,stepping:58,short_passing:74,touch_finder:68,
+ goal_kicking:74,scrum_drive:5,scrum_tech:5,jumping:22,lifting:5,
+ consistency:"Medium",big_game:"Medium",injury_prone:"Low",dirtiness:"Low",work_rate:"Medium",versatility:"High",professionalism:"High",ambition:"Medium",loyalty:"Medium",temperament:"Medium",
+ potential:74,form:60,fitness:100,morale:70,wage:4500,contract_end:2},
+
+{num:23,name:"Guy Porter",pos:"Outside Centre",posKey:"OC",age:27,nat:"England",ht:185,wt:96,
+ stopping_power:55,explosiveness:60,leg_drive:46,pace:70,acceleration:68,agility:64,strength:62,
+ aggression:52,composure:62,concentration:60,awareness:64,running_lines:60,discipline:66,tenacity:58,scanning:58,positioning:58,
+ long_passing:48,handling:64,high_ball:42,offload:42,tackling:68,rucking:28,mauling:12,jackling:12,grubber:30,chipping:32,box_kicking:8,stepping:60,short_passing:64,touch_finder:32,
+ goal_kicking:15,scrum_drive:5,scrum_tech:5,jumping:30,lifting:10,
+ consistency:"High",big_game:"Medium",injury_prone:"Low",dirtiness:"Low",work_rate:"High",versatility:"High",professionalism:"High",ambition:"Medium",loyalty:"Medium",temperament:"High",
+ potential:76,form:62,fitness:100,morale:70,wage:6000,contract_end:2},
+];
+
+/* ═══════════════════════ ENGINE ═══════════════════════ */
+/* ═══════════════ PURE-ENGINE-START ═══════════════
+   Pure, testable contest resolvers. No DOM, no side effects.
+   Every number traces to a player stat.
+   Core carry/offload/ruck/fatigue maths copied VERBATIM from the proven
+   sim_2v2.html pure block; extended below with 15v15 resolvers.        */
+
+function roll(n){return Math.floor(Math.random()*n)+1}
+function chance(p){return Math.random()*100<p}
+function clamp(v,a,b){return v<a?a:v>b?b:v}
+
+// Tuning constants (2v2-proven values)
+const DEF_LINE_BONUS = 6;      // organised defender advantage
+const BREAK_THRESHOLD = 14;    // diff needed for a clean break
+const SMASH_THRESHOLD = -12;   // diff at/below which the hit is dominant
+const OFFLOAD_DIFFICULTY = 4;  // flat difficulty on offload attempts
+
+// ── Fatigue model ──
+const FATIGUE_CONTEST_SCALE = 12;
+const FATIGUE_SPEED_SCALE = 0.35;
+function fatiguePenalty(p) {
+    return ((p.fatigue || 0) / 100) * FATIGUE_CONTEST_SCALE;
+}
+function fatigueSpeedFactor(p) {
+    return 1 - ((p.fatigue || 0) / 100) * FATIGUE_SPEED_SCALE;
+}
+
+// ── Ruck model ──
+const RUCK_BALL_BONUS = 10;      // possession advantage: attack is over the ball first
+const RUCK_SUPPORT_WEIGHT = 0.5; // later arrivals contribute half weight
+const RUCK_FAST_THRESHOLD = 25;  // diff needed for quick ball
+const RUCK_TURNOVER_THRESHOLD = -18; // diff at/below which the ball is stolen
+const RUCK_FAST_FRAMES = 25;
+const RUCK_SLOW_FRAMES = 80;
+
+function ruckAttackScore(p) {
+    return p.rucking*0.55 + p.strength*0.45 - fatiguePenalty(p);
+}
+function ruckDefendScore(p) {
+    return p.jackling*0.55 + p.rucking*0.25 + p.strength*0.20 - fatiguePenalty(p);
+}
+function ruckPenaltyRisk(playersArr) {
+    const worst = Math.min(...playersArr.map(p => p.discipline));
+    return Math.max(0, (78 - worst) * 0.25); // % chance
+}
+function resolveRuckContest(atkPlayers, defPlayers, defBonus = 0) {
+    if (chance(ruckPenaltyRisk(defPlayers) * 1.4))
+        return {outcome:"penalty", against:"defence", speed:RUCK_SLOW_FRAMES, diff:0};
+    if (chance(ruckPenaltyRisk(atkPlayers)))
+        return {outcome:"penalty", against:"attack", speed:RUCK_SLOW_FRAMES, diff:0};
+    let atk = RUCK_BALL_BONUS, def = defBonus;
+    atkPlayers.forEach((p, i) => atk += ruckAttackScore(p) * (i === 0 ? 1 : RUCK_SUPPORT_WEIGHT));
+    defPlayers.forEach((p, i) => def += ruckDefendScore(p) * (i === 0 ? 1 : RUCK_SUPPORT_WEIGHT));
+    const diff = (atk + roll(40) - 20) - (def + roll(40) - 20);
+    if (diff <= RUCK_TURNOVER_THRESHOLD) return {outcome:"turnover", speed:RUCK_SLOW_FRAMES, diff};
+    if (diff >= RUCK_FAST_THRESHOLD)     return {outcome:"fast",     speed:RUCK_FAST_FRAMES, diff};
+    return {outcome:"slow", speed:RUCK_SLOW_FRAMES, diff};
+}
+
+// Carriers attack to their strengths: power runs over, evasive runs around.
+function carryProfile(atk) {
+    const power   = atk.strength*0.40 + atk.explosiveness*0.30 + atk.pace*0.15 + atk.agility*0.15;
+    const evasive = atk.stepping*0.40 + atk.agility*0.30 + atk.acceleration*0.15 + atk.pace*0.15;
+    return power >= evasive ? {score: power, style: "power"} : {score: evasive, style: "evasive"};
+}
+function tackleProfile(def) {
+    return def.tackling*0.35 + def.stopping_power*0.20 + def.awareness*0.20
+         + def.agility*0.15 + def.pace*0.10;
+}
+// Carry vs tackle contest. Returns {outcome:"break"|"tackled"|"smashed", diff, style}
+function resolveCarryContest(atk, def) {
+    const a = carryProfile(atk);
+    const atkScore = a.score - fatiguePenalty(atk) + roll(25) - 13;
+    const defScore = tackleProfile(def) - fatiguePenalty(def) + DEF_LINE_BONUS + roll(25) - 13;
+    const diff = atkScore - defScore;
+    let outcome;
+    if (diff > BREAK_THRESHOLD) outcome = "break";
+    else if (diff > SMASH_THRESHOLD) outcome = "tackled";
+    else outcome = "smashed";
+    return {outcome, diff, style: a.style};
+}
+function offloadAttemptChance(atk) {
+    return Math.max(10, Math.min(75, atk.offload*0.8 + atk.composure*0.2));
+}
+function resolveOffloadContest(atk, def) {
+    const passScore = atk.offload*0.35 + atk.composure*0.25
+                    + atk.awareness*0.20 + atk.handling*0.20
+                    - fatiguePenalty(atk) + roll(20) - 10;
+    const killScore = def.awareness*0.30 + def.strength*0.30 + def.tackling*0.25
+                    + OFFLOAD_DIFFICULTY - fatiguePenalty(def) + roll(20) - 10;
+    return {success: passScore > killScore, margin: passScore - killScore};
+}
+
+/* ── 15v15 EXTENSIONS (same philosophy: attacker-vs-defender weighted sums + noise) ── */
+
+// Hidden tier helpers (BRIEF C.10)
+const TIER_NUM = {Low:0, Medium:1, High:2, Elite:3};
+function tierNum(t){ return TIER_NUM[t] !== undefined ? TIER_NUM[t] : 1 }
+// Consistency → per-match stat wobble, rolled once at kickoff. Low consistency
+// players swing further from their listed numbers than Elite ones.
+const CONSISTENCY_WOBBLE = [8, 5.5, 3, 1.5]; // Low, Medium, High, Elite (± range)
+function consistencyWobble(tier){
+    const mag = CONSISTENCY_WOBBLE[tierNum(tier)];
+    return (Math.random()*2 - 1) * mag;
+}
+// Work Rate → off-ball involvement + fatigue recovery scaling
+const WORK_RATE_FACTOR = [0.85, 1.0, 1.12, 1.25];
+function workRateFactor(tier){ return WORK_RATE_FACTOR[tierNum(tier)] }
+// Injury Proneness → multiplier on rare contact-injury rolls
+const INJURY_MULT = [0.5, 1.0, 1.9, 2.6];
+function injuryMult(tier){ return INJURY_MULT[tierNum(tier)] }
+// NOTE: Big Game Temperament is deliberately UNUSED for now — there is no match
+// importance context yet (league position / finals). Wire it in when the season
+// shell arrives (BRIEF Phase D).
+
+// Pass hop in a chain going wide. Pressure = how quickly the defence is up.
+function resolvePassHop(passer, receiver, pressure) {
+    const passScore = passer.short_passing*0.40 + passer.handling*0.25
+                    + passer.composure*0.20 + passer.awareness*0.15
+                    - fatiguePenalty(passer) + roll(20) - 10;
+    const catchScore = receiver.handling*0.6 + receiver.composure*0.4;
+    const difficulty = 34 + pressure*0.18 - catchScore*0.10;
+    if (passScore < difficulty) return {outcome:"drop"};
+    return {outcome:"good"};
+}
+// Interception check by a shooting defender (rare)
+function interceptChance(def) {
+    return Math.max(0, ((def.scanning + def.awareness)/2 - 62) * 0.09);
+}
+
+// Scrum: front five carry the shove; back row adds a little.
+function packScrumScore(pack) {
+    let s = 0, n = 0;
+    for (const p of pack) {
+        const w = p.slot <= 5 ? 1 : 0.35;
+        s += (p.scrum_drive*0.30 + p.scrum_tech*0.25 + p.strength*0.25 + p.leg_drive*0.20
+              - fatiguePenalty(p)) * w;
+        n += w;
+    }
+    return n ? s/n : 40;
+}
+const SCRUM_FEED_BONUS = 12;
+// Returns {outcome:"clean"|"pressure"|"penAtk"|"penDef"|"turnover", diff}
+function resolveScrum(atkPack, defPack) {
+    // Prop discipline: boring in / early shove gives the ref a decision
+    const atkDisc = Math.min(...atkPack.filter(p=>p.slot<=3).map(p=>p.discipline), 99);
+    const defDisc = Math.min(...defPack.filter(p=>p.slot<=3).map(p=>p.discipline), 99);
+    if (chance(Math.max(0,(76-defDisc)*0.16))) return {outcome:"penAtk", diff:0};
+    if (chance(Math.max(0,(76-atkDisc)*0.13))) return {outcome:"penDef", diff:0};
+    const diff = (packScrumScore(atkPack) + SCRUM_FEED_BONUS + roll(30)-15)
+               - (packScrumScore(defPack) + roll(30)-15);
+    if (diff <= -24) return {outcome:"turnover", diff};  // shoved off own ball
+    if (diff <= -9)  return {outcome:"pressure", diff};  // messy, slow ball
+    if (diff >= 22)  return {outcome:"penAtk", diff};    // dominant shove wins a penalty
+    return {outcome:"clean", diff};
+}
+
+// Lineout: hooker throw (scanning+awareness+concentration) vs jumping+lifting pods.
+// Returns {outcome:"clean"|"steal"|"overthrow", throwQ}
+function resolveLineout(thrower, atkPod, defPod) {
+    const throwQ = thrower.scanning*0.35 + thrower.awareness*0.25
+                 + thrower.concentration*0.20 + thrower.composure*0.20
+                 - fatiguePenalty(thrower) + roll(24) - 12;
+    if (throwQ < 34) return {outcome:"overthrow", throwQ};
+    const avg = (arr,k1,k2) => arr.reduce((s,p)=>s+p[k1]*0.6+p[k2]*0.4,0)/arr.length;
+    const atkJump = avg(atkPod,"jumping","lifting") + throwQ*0.25 + roll(16)-8;
+    const defJump = avg(defPod,"jumping","lifting") + roll(16)-8;
+    if (defJump > atkJump + 14) return {outcome:"steal", throwQ};
+    return {outcome:"clean", throwQ};
+}
+// Maul off a won lineout. Returns {outcome:"drive"|"held"|"penAtk"|"penDef", gain}
+function resolveMaul(atkPack, defPack) {
+    const av = pack => pack.reduce((s,p)=>s+p.mauling*0.5+p.strength*0.3+p.leg_drive*0.2-fatiguePenalty(p),0)/pack.length;
+    const diff = av(atkPack) + 8 + roll(24)-12 - (av(defPack) + roll(24)-12);
+    if (diff > 20) {
+        // Rumbling maul — defence often has to kill it illegally
+        if (chance(22)) return {outcome:"penAtk", gain:5};
+        return {outcome:"drive", gain: 4 + Math.round(diff*0.25)};
+    }
+    if (diff < -14) {
+        if (chance(18)) return {outcome:"penDef", gain:0}; // attack collapses it
+        return {outcome:"held", gain:0};
+    }
+    return {outcome:"drive", gain: Math.max(1, Math.round(diff*0.2)+2)};
+}
+
+// Contested high ball: receiver high_ball+positioning vs chaser pace+high_ball.
+// Returns "catch" | "reclaim" (chasing team wins it) | "spill" (knock-on)
+function resolveHighBall(receiver, chaser) {
+    const recv  = receiver.high_ball*0.50 + receiver.positioning*0.30 + receiver.composure*0.20
+                - fatiguePenalty(receiver) + roll(24)-12 + 8; // receiver advantage
+    const chase = chaser.high_ball*0.35 + chaser.pace*0.35 + chaser.explosiveness*0.15
+                + chaser.tenacity*0.15 - fatiguePenalty(chaser) + roll(24)-12;
+    if (chase > recv + 12) return "reclaim";
+    if (recv < 42) return "spill";
+    return "catch";
+}
+
+// Goal kicks: goal_kicking vs distance (m from posts) and lateral offset (m).
+function goalKickChance(kicker, dist, offset) {
+    return clamp(kicker.goal_kicking*0.52 + 60 - dist*1.15 - offset*0.45, 6, 94);
+}
+
+// Card risk when a penalty is conceded. Aggression + low Discipline, with the
+// hidden Dirtiness tier as a multiplier (BRIEF C.10).
+function yellowCardChance(p, cynical) {
+    const dirt = tierNum(p.dirtiness);
+    let c = 3.2 + p.aggression*0.055 + dirt*3.2 - p.discipline*0.055;
+    if (cynical) c *= 2.1; // killing the ball near your own line
+    return clamp(c, 0.4, 26);
+}
+function redCardChance(p) {
+    return tierNum(p.dirtiness) >= 2 ? 0.7 : 0.12;
+}
+/* ═══════════════ PURE-ENGINE-END ═══════════════ */
+
+/* ── Match state machine (headless-capable — no DOM in this section) ── */
+
+const HALF_SECONDS = 2400, FULL_SECONDS = 4800;
+const PITCH_LEN = 100, PITCH_WID = 70;
+const VISIBLE_STATS = ["stopping_power","explosiveness","leg_drive","pace","acceleration","agility","strength",
+ "aggression","composure","concentration","awareness","running_lines","discipline","tenacity","scanning","positioning",
+ "long_passing","handling","high_ball","offload","tackling","rucking","mauling","jackling","grubber","chipping",
+ "box_kicking","stepping","short_passing","touch_finder","goal_kicking","scrum_drive","scrum_tech","jumping","lifting"];
+
+const KICK_MULT   = {rarely:0.55, sometimes:1.0, often:1.65};
+const WIDTH_ADJ   = {tight:-15, balanced:0, wide:17};
+const COMMIT_SUP  = {low:1, med:2, high:3};
+
+// Fatigue event costs — the 2v2 values scaled down ~50% because a 15v15
+// match spreads ~170 events across 30 players (same fatiguePenalty maths).
+const COST_CARRY=3, COST_TACKLE=3, COST_BIG_HIT=5, COST_SMASHED=4,
+      COST_BREAK_SPRINT=2, COST_RUCK=3, COST_OFFLOAD=1;
+const PASSIVE_RECOVER = 0.9; // per event, scaled by Work Rate
+
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)] }
+function wpick(arr, wfn){
+    const ws = arr.map(p=>Math.max(0.5, wfn(p)));
+    let t = ws.reduce((a,b)=>a+b,0)*Math.random();
+    for (let i=0;i<arr.length;i++){ t -= ws[i]; if (t<=0) return arr[i]; }
+    return arr[arr.length-1];
+}
+function best(arr, fn){
+    let b=null,bv=-1e9;
+    for (const p of arr){ const v=fn(p); if(v>bv){bv=v;b=p} }
+    return b;
+}
+
+function makeTeam(squad, name, side, tactics){
+    const players = squad.map(src => {
+        const p = Object.assign({}, src);
+        // Consistency wobble — rolled once per match (BRIEF C.10)
+        const w = consistencyWobble(p.consistency);
+        for (const k of VISIBLE_STATS) p[k] = clamp(Math.round(src[k] + w), 1, 99);
+        p.side = side; p.slot = src.num <= 15 ? src.num : 0;
+        p.fatigue = 0; p.off = false; p.used = src.num <= 15;
+        p.x = 0; p.y = 0; p.tx = 0; p.ty = 0; // px coords for the UI layer
+        return p;
+    });
+    return {
+        name, side, players,
+        onField: players.filter(p=>p.num<=15),
+        bench:   players.filter(p=>p.num>15),
+        tactics: Object.assign({kick:"sometimes", width:"balanced", commit:"med"}, tactics||{}),
+        frontRowSubbed:false, subsUsed:0
+    };
+}
+function blankStats(){ return {poss:0, terr:0, tackles:0, turnovers:0, pens:0, tries:0, cards:0, kicks:0} }
+
+function createMatch(opts){
+    opts = opts||{};
+    const st = {
+        clock:0, half:1, done:false, evCount:0,
+        mode:"kickoff", kickoffBy: chance(50) ? "home" : "away",
+        possession:"home",
+        ball:{x:50, y:35},
+        phaseCount:0, fastBall:false,
+        mom:0, // momentum: + favours home
+        score:{home:0, away:0},
+        teams:{
+            home: makeTeam(SALE_SQUAD, "Sale Sharks", "home", opts.homeTactics),
+            away: makeTeam(LEIC_SQUAD, "Leicester Tigers", "away", opts.awayTactics)
+        },
+        stats:{home:blankStats(), away:blankStats()},
+        sinbins:[], pendingTryY:35, throwTo:"home",
+        involved:[], evs:[], dt:20
+    };
+    st.h1Kicker = st.kickoffBy;
+    return st;
+}
+
+function other(s){ return s==="home" ? "away" : "home" }
+function dirOf(st, side){ return (side==="home") === (st.half===1) ? 1 : -1 }
+function distToLine(st, side){ const d = dirOf(st, side); return d>0 ? PITCH_LEN-st.ball.x : st.ball.x }
+function team(st, s){ return st.teams[s] }
+function fwds(t){ return t.onField.filter(p=>p.slot>=1&&p.slot<=8) }
+function backs(t){ return t.onField.filter(p=>p.slot>=9) }
+function bySlot(t, n){ return t.onField.find(p=>p.slot===n) }
+function slotOr(t, n, fallbackFn){ return bySlot(t,n) || best(t.onField, fallbackFn) }
+function momBias(st, side){ return (side==="home"?1:-1) * st.mom * 0.08 }
+// Trailing sides up the tempo and take more risks — small urgency bonus
+function urgency(st, side){ const d = st.score[other(side)] - st.score[side]; return d >= 4 ? Math.min(10, d*0.55) : 0 }
+function shiftMom(st, side, amt){ st.mom = clamp(st.mom + (side==="home"?amt:-amt), -30, 30) }
+function addFatigue(p, amt){ p.fatigue = clamp((p.fatigue||0)+amt, 0, 100) }
+function mins(st){ return Math.floor(st.clock/60) }
+
+function ev(st, text, cls, inv){
+    st.evs.push({text, cls:cls||"", t:st.clock});
+    if (inv) st.involved = inv; // [{p, ox, oy}] offsets in metres relative to the ball
+}
+
+// ── Involvement helpers (who leaves the formation for this micro-event) ──
+function invCarry(st, carrier, defender, support){
+    const d = dirOf(st, st.possession);
+    const arr = [{p:carrier, ox:-d*0.8, oy:0}, {p:defender, ox:d*1.2, oy:0.5}];
+    if (support) arr.push({p:support, ox:-d*3.5, oy:2});
+    return arr;
+}
+
+function pickCarrierForward(t){
+    return wpick(fwds(t), p => (p.strength + p.explosiveness)*0.5*workRateFactor(p.work_rate) - p.fatigue*0.6);
+}
+function pickDefForward(t){
+    return wpick(fwds(t), p => p.tackling*0.6 + p.stopping_power*0.4 - p.fatigue*0.5);
+}
+function pickDefBack(t){
+    return wpick(backs(t).filter(p=>p.slot>=11), p => p.tackling*0.5 + p.positioning*0.5 - p.fatigue*0.5);
+}
+
+// Injury roll on a contact (BRIEF C.10: Injury Proneness feeds rare injury events)
+function injuryRoll(st, p){
+    if (chance(0.09 * injuryMult(p.injury_prone))) {
+        forceSub(st, team(st, p.side), p, true);
+    }
+}
+function forceSub(st, t, off, isInjury){
+    const rep = t.bench.find(b => !b.used && b.posKey === off.posKey)
+             || t.bench.find(b => !b.used && ((b.num<=20) === (off.slot<=8)))
+             || t.bench.find(b => !b.used);
+    off.off = true;
+    t.onField = t.onField.filter(p=>p!==off);
+    if (rep && t.subsUsed < 8) {
+        rep.used = true; rep.slot = off.slot; t.subsUsed++;
+        rep.x = off.x; rep.y = off.y;
+        t.onField.push(rep);
+        ev(st, (isInjury? `Injury blow — <b>${off.name}</b> can't continue. ` : `Substitution — <b>${off.name}</b> makes way. `) +
+               `<b>${rep.name}</b> comes on for ${t.name}.`, isInjury?"injury":"");
+    } else {
+        ev(st, `<b>${off.name}</b> ${isInjury?"is injured and":""} leaves the field — no replacement available!`, "injury");
+    }
+}
+function checkSubs(st){
+    for (const s of ["home","away"]){
+        const t = team(st, s);
+        // Front-row auto subs ~50-60 min
+        if (!t.frontRowSubbed && st.clock > 3000 + roll(600)){
+            t.frontRowSubbed = true;
+            for (const slot of [1,2,3]){
+                const p = bySlot(t, slot);
+                if (p && t.subsUsed < 8) forceSub(st, t, p, false);
+            }
+        }
+        // Fatigue subs
+        const tired = t.onField.find(p=>p.fatigue>75);
+        if (tired && t.subsUsed < 8 && t.bench.some(b=>!b.used)) forceSub(st, t, tired, false);
+    }
+}
+function checkSinBins(st){
+    st.sinbins = st.sinbins.filter(sb => {
+        if (st.clock >= sb.returnAt){
+            const t = team(st, sb.side);
+            t.onField.push(sb.p); sb.p.off = false;
+            ev(st, `<b>${sb.p.name}</b> returns from the sin bin — ${t.name} back to full strength.`);
+            return false;
+        }
+        return true;
+    });
+}
+
+function handlePenalty(st, offendingSide, cynical, where){
+    const off = team(st, offendingSide);
+    st.stats[offendingSide].pens++;
+    const offender = wpick(off.onField, p => p.aggression*0.5 + tierNum(p.dirtiness)*14 + (100-p.discipline)*0.4);
+    shiftMom(st, other(offendingSide), 3);
+    ev(st, `<b>PENALTY</b> against ${off.name} — <b>${offender.name}</b> ${where||"is pinged at the breakdown"}.`, "penalty",
+        [{p:offender, ox:0, oy:1}]);
+    if (chance(redCardChance(offender))) {
+        offender.off = true;
+        off.onField = off.onField.filter(p=>p!==offender);
+        st.stats[offendingSide].cards++;
+        ev(st, `<b>RED CARD!</b> <b>${offender.name}</b> is sent off! ${off.name} down to ${off.onField.length} men.`, "red-card");
+    } else if (chance(yellowCardChance(offender, cynical))) {
+        offender.off = true;
+        off.onField = off.onField.filter(p=>p!==offender);
+        st.sinbins.push({p:offender, side:offendingSide, returnAt: st.clock + 600});
+        st.stats[offendingSide].cards++;
+        ev(st, `<b>YELLOW CARD!</b> <b>${offender.name}</b> to the sin bin for 10 minutes.`, "card");
+    }
+    st.possession = other(offendingSide);
+    st.mode = "penalty";
+    st.phaseCount = 0; st.fastBall = false;
+}
+
+function scoreTry(st, side, scorer){
+    st.score[side] += 5;
+    st.stats[side].tries++;
+    st.lastTrySide = side;
+    shiftMom(st, side, 6);
+    st.pendingTryY = clamp(st.ball.y + roll(10)-5, 4, 66);
+    const d = dirOf(st, side);
+    st.ball.x = d>0 ? 99 : 1;
+    st.ball.y = st.pendingTryY;
+    ev(st, `<b>TRY!</b> <b>${scorer.name}</b> touches down for ${team(st,side).name}! ${mins(st)}' — what a moment!`, "try",
+        [{p:scorer, ox:0, oy:0}]);
+    st.mode = "conversion";
+    st.dt = 40;
+}
+
+// ── RUCK (uses the proven 2v2 resolver with genuinely involved players) ──
+function doRuckPhase(st, carrier, tackler, defBonus){
+    const atk = team(st, st.possession), def = team(st, other(st.possession));
+    const nSup = COMMIT_SUP[atk.tactics.commit];
+    const sups = fwds(atk).filter(p=>p!==carrier)
+        .sort((a,b)=>(b.rucking+b.strength)*workRateFactor(b.work_rate)-b.fatigue - ((a.rucking+a.strength)*workRateFactor(a.work_rate)-a.fatigue))
+        .slice(0, nSup);
+    // The resolver contest is 2v2-shaped like the proven sim: carrier + first
+    // support vs tackler + jackler. Extra committed bodies (breakdown tactic)
+    // don't pile into the maths directly — they erode the defence's
+    // organisation bonus and burn fatigue instead.
+    const atkArr = [carrier, sups[0]].filter(Boolean);
+    const defArr = [tackler];
+    const jackler = best(fwds(def).filter(p=>p!==tackler), p=>p.jackling - p.fatigue*0.5);
+    const defCommitP = {low:50, med:75, high:95}[def.tactics.commit];
+    if (jackler && chance(defCommitP * workRateFactor(jackler.work_rate))) defArr.push(jackler);
+    const RUCK_DEF_ORG = 20; // set defensive ruck line organisation
+    const extraSup = Math.max(0, sups.length - 1);
+    const res = resolveRuckContest(atkArr, defArr, defBonus + RUCK_DEF_ORG - extraSup*5 - urgency(st, st.possession));
+    for (const p of atkArr) addFatigue(p, COST_RUCK);
+    for (const p of defArr) addFatigue(p, COST_RUCK);
+
+    const d = dirOf(st, st.possession);
+    const inv = [{p:carrier, ox:-d*0.5, oy:0}, {p:tackler, ox:d*0.8, oy:0.4}];
+    for (let i=0;i<sups.length;i++) inv.push({p:sups[i], ox:-d*(1.5+i), oy:(i%2?1.2:-1.2)});
+    if (defArr[1]) inv.push({p:defArr[1], ox:d*1.6, oy:-0.8});
+
+    if (res.outcome === "penalty"){
+        const offSide = res.against === "defence" ? other(st.possession) : st.possession;
+        const cynical = res.against === "defence" && distToLine(st, st.possession) < 12;
+        handlePenalty(st, offSide, cynical, res.against==="defence" ? "won't release at the ruck" : "seals off at the ruck");
+        st.dt = 45;
+    } else if (res.outcome === "turnover"){
+        const j = defArr[1] || defArr[0];
+        st.stats[other(st.possession)].turnovers++;
+        shiftMom(st, other(st.possession), 5);
+        st.possession = other(st.possession);
+        st.phaseCount = 0; st.fastBall = true; // broken-field counter-attack ball
+        ev(st, `<b>TURNOVER!</b> <b>${j.name}</b> jackals over the ball and rips it away!`, "turnover", inv);
+        st.dt = 25;
+    } else {
+        st.fastBall = res.outcome === "fast";
+        st.phaseCount++;
+        if (st.fastBall) ev(st, `Quick ruck ball — <b>${slotOr(atk,9,p=>p.short_passing).name}</b> whips it away. Phase ${st.phaseCount}.`, "", inv);
+        else ev(st, `Slow, scrappy ball at the ruck... phase ${st.phaseCount}.`, "", inv);
+        st.dt = st.fastBall ? 12+roll(8) : 22+roll(14);
+    }
+}
+
+// ── OPEN PLAY ──
+function doOpen(st){
+    const aSide = st.possession, dSide = other(aSide);
+    const atk = team(st, aSide), def = team(st, dSide);
+    const d = dirOf(st, aSide);
+    const dtl = distToLine(st, aSide);      // metres to opposition try line
+    const dOwn = PITCH_LEN - dtl;           // metres from own try line
+
+    // 1) Kick decision — zone base × tactic × the 10's judgement
+    const fh = slotOr(atk, 10, p=>p.touch_finder+p.chipping);
+    let kickBase = dOwn < 25 ? 52 : dOwn < 40 ? 28 : dtl > 35 ? 14 : 5;
+    if (st.phaseCount > 8 && dtl > 30) kickBase += 12; // going nowhere — kick the pressure away
+    const judge = clamp(((fh.scanning + fh.awareness)/2) / 70, 0.8, 1.2);
+    if (chance(clamp(kickBase * KICK_MULT[atk.tactics.kick] * judge, 1, 78))) return doKickOpen(st);
+
+    // 2) Width decision — tactics + ruck speed + 9/10 vision
+    const sh = slotOr(atk, 9, p=>p.short_passing);
+    const avgOf = (arr, fn) => arr.length ? arr.reduce((s,p)=>s+fn(p),0)/arr.length : 50;
+    const fwdEdge  = avgOf(fwds(atk), p=>carryProfile(p).score) - avgOf(fwds(def), tackleProfile);
+    const backEdge = avgOf(backs(atk), p=>carryProfile(p).score) - avgOf(backs(def), tackleProfile);
+    const readSkill = clamp((sh.scanning + fh.scanning)/140, 0.6, 1.2);
+    let wideP = 34 + WIDTH_ADJ[atk.tactics.width]
+              + (st.fastBall ? 15 : -4)
+              + (backEdge - fwdEdge) * 0.8 * readSkill
+              + ((sh.scanning + fh.awareness)/2 - 60) * 0.3;
+    if (dtl < 8) wideP *= 0.4; // close range: keep it tight
+    wideP = clamp(wideP, 8, 78);
+
+    let carrier, defender, support;
+    if (!chance(wideP)) {
+        // Pick-and-go / one-out carry by a forward
+        carrier = pickCarrierForward(atk);
+        defender = pickDefForward(def);
+        support = pick(fwds(atk).filter(p=>p!==carrier)) || null;
+        st.ball.y = clamp(st.ball.y + roll(9)-5, 6, 64);
+        return doCarry(st, carrier, defender, support, "tight");
+    }
+
+    // 3) Passing chain — hop-by-hop short_passing/handling
+    const chainSlots = [9,10,12,13];
+    const nHops = atk.tactics.width==="wide" ? 3+ (chance(50)?1:0) : atk.tactics.width==="tight" ? 2 : 2+(chance(60)?1:0);
+    const defLine = backs(def);
+    const pressure = defLine.length ? defLine.reduce((s,p)=>s+p.positioning*0.5+p.scanning*0.5,0)/defLine.length : 55;
+    let passer = slotOr(atk, 9, p=>p.short_passing);
+    const wingSlot = st.ball.y > 35 ? 11 : 14; // spin to the open side
+    for (let h=1; h<=nHops; h++){
+        const recvSlot = h < nHops ? chainSlots[Math.min(h, 3)] : (chance(60) ? wingSlot : (chance(50)?13:15));
+        const receiver = slotOr(atk, recvSlot, p=>p.handling) || passer;
+        if (receiver === passer) break;
+        // Interception shot by an aggressive defender (rare)
+        const shooter = pickDefBack(def);
+        if (chance(interceptChance(shooter))){
+            st.stats[dSide].turnovers++;
+            st.possession = dSide; st.phaseCount = 0; st.fastBall = false;
+            shiftMom(st, dSide, 6);
+            st.ball.x = clamp(st.ball.x - d*(6+roll(14)), 2, 98);
+            ev(st, `<b>INTERCEPTED!</b> <b>${shooter.name}</b> reads the pass and picks it off!`, "turnover",
+               [{p:shooter, ox:0, oy:0}]);
+            st.dt = 18; return;
+        }
+        const hop = resolvePassHop(passer, receiver, pressure);
+        if (hop.outcome === "drop"){
+            ev(st, `The pass to <b>${receiver.name}</b> goes down — <b>knock-on</b>! Scrum to ${def.name}.`, "turnover",
+               [{p:receiver, ox:0, oy:0.5}]);
+            st.stats[dSide].turnovers++;
+            st.possession = dSide; st.mode = "scrum";
+            st.phaseCount = 0; st.fastBall = false;
+            st.dt = 20; return;
+        }
+        st.ball.y = clamp(st.ball.y + (st.ball.y>35?-1:1)*(6+roll(5)), 4, 66);
+        st.ball.x = clamp(st.ball.x - d*1.2, 2, 98); // passes travel backwards
+        passer = receiver;
+    }
+    carrier = passer;
+    defender = pickDefBack(def);
+    support = slotOr(atk, 15, p=>p.pace);
+    return doCarry(st, carrier, defender, support, "wide");
+}
+
+// Carry contest + aftermath (offload / ruck / break / try)
+function doCarry(st, carrier, defender, support, channel){
+    const aSide = st.possession, dSide = other(aSide);
+    const atk = team(st, aSide), def = team(st, dSide);
+    const d = dirOf(st, aSide);
+    const dtl = distToLine(st, aSide);
+
+    const r = resolveCarryContest(carrier, defender);
+    // Momentum bias re-classifies the same diff against the proven thresholds
+    const diff2 = r.diff*0.75 + momBias(st, aSide) + urgency(st, aSide) + (st.fastBall ? 6 : 0);
+    const outcome = diff2 > BREAK_THRESHOLD ? "break" : diff2 > SMASH_THRESHOLD ? "tackled" : "smashed";
+    injuryRoll(st, carrier); injuryRoll(st, defender);
+    const inv = invCarry(st, carrier, defender, support);
+
+    if (outcome === "break"){
+        addFatigue(carrier, COST_BREAK_SPRINT + COST_CARRY);
+        addFatigue(defender, COST_TACKLE*0.5);
+        let gain = 9 + carrier.pace*0.13 + roll(12);
+        const verb = r.style==="power" ? `bounces off <b>${defender.name}</b> and surges through` : `steps past <b>${defender.name}</b> and bursts into space`;
+        if (gain >= dtl){
+            // Only the sweeper to beat
+            const fb = slotOr(def, 15, p=>p.positioning+p.pace);
+            const esc = clamp(26 + (carrier.pace - fb.pace)*0.9 + (carrier.stepping - fb.positioning)*0.25 + momBias(st,aSide) + urgency(st,aSide), 5, 88);
+            if (chance(esc)){
+                st.ball.x = clamp(st.ball.x + d*dtl, 0, 100);
+                ev(st, `<b>${carrier.name}</b> ${verb} — beats the last man <b>${fb.name}</b>!`, "", inv);
+                return scoreTry(st, aSide, carrier);
+            }
+            gain = Math.max(2, dtl - (2+roll(4)));
+            st.ball.x = clamp(st.ball.x + d*gain, 2, 98);
+            ev(st, `<b>${carrier.name}</b> ${verb}, but <b>${fb.name}</b> hauls him down just short!`, "tackle",
+               [{p:carrier, ox:-d*0.6, oy:0},{p:fb, ox:d*1, oy:0.4}]);
+            st.stats[dSide].tackles++;
+            st.fastBall = true;
+            return doRuckPhase(st, carrier, fb, -6);
+        }
+        st.ball.x = clamp(st.ball.x + d*gain, 2, 98);
+        ev(st, `<b>${carrier.name}</b> ${verb} — <b>line break</b>, ${Math.round(gain)}m gained!`, "", inv);
+        shiftMom(st, aSide, 3);
+        st.fastBall = true;
+        const cover = pickDefBack(def);
+        st.stats[dSide].tackles++;
+        return doRuckPhase(st, carrier, cover, -6);
+    }
+
+    if (outcome === "tackled" || outcome === "smashed"){
+        // Occasional tackle-area infringement: no-arms / high shot
+        const infr = clamp((72 - defender.discipline)*0.12 + defender.aggression*0.02, 0.3, 5.5);
+        if (chance(infr)){
+            addFatigue(carrier, COST_CARRY); addFatigue(defender, COST_TACKLE);
+            ev(st, `<b>${defender.name}</b> flies into <b>${carrier.name}</b> — the whistle goes.`, "tackle", inv);
+            return handlePenalty(st, dSide, distToLine(st,aSide)<15, "is penalised for a dangerous tackle");
+        }
+    }
+    if (outcome === "tackled"){
+        addFatigue(carrier, COST_CARRY); addFatigue(defender, COST_TACKLE);
+        st.stats[dSide].tackles++;
+        let gain = (r.style==="power"?2:1) + roll(4);
+        if (gain >= dtl){
+            // Driving for the line
+            if (chance(clamp(24 + carrier.strength*0.22 + momBias(st,aSide) + urgency(st,aSide), 8, 66))){
+                st.ball.x = clamp(st.ball.x + d*dtl, 0, 100);
+                ev(st, `<b>${carrier.name}</b> takes the tackle from <b>${defender.name}</b> but stretches out...`, "tackle", inv);
+                return scoreTry(st, aSide, carrier);
+            }
+            gain = Math.max(0, dtl - 1);
+            ev(st, `<b>${carrier.name}</b> is held up just short of the line by <b>${defender.name}</b>!`, "tackle", inv);
+            st.ball.x = clamp(st.ball.x + d*gain, 2, 98);
+            return doRuckPhase(st, carrier, defender, 0);
+        }
+        st.ball.x = clamp(st.ball.x + d*gain, 2, 98);
+        // Offload attempt — exactly the 2v2 loop
+        if (support && chance(offloadAttemptChance(carrier))){
+            const off = resolveOffloadContest(carrier, defender);
+            if (off.success){
+                addFatigue(carrier, COST_OFFLOAD);
+                const extra = 5 + roll(8);
+                st.ball.x = clamp(st.ball.x + d*extra, 2, 98);
+                ev(st, `<b>${defender.name}</b> makes the hit but <b>${carrier.name}</b> pops the <b>offload</b> to <b>${support.name}</b>, who tears on!`, "",
+                   [{p:support, ox:-d*0.6, oy:0},{p:carrier, ox:d*0.5, oy:1},{p:defender, ox:d*1, oy:-0.5}]);
+                st.fastBall = true;
+                const cover = channel==="wide" ? pickDefBack(def) : pickDefForward(def);
+                st.stats[dSide].tackles++;
+                return doRuckPhase(st, support, cover, 0);
+            }
+            ev(st, `<b>${carrier.name}</b> looks for the offload but <b>${defender.name}</b> wraps him up. Ruck.`, "tackle", inv);
+            return doRuckPhase(st, carrier, defender, 0);
+        }
+        ev(st, pick([
+            `<b>${defender.name}</b> chops <b>${carrier.name}</b> down. Recycled.`,
+            `<b>${carrier.name}</b> is dragged to the deck by <b>${defender.name}</b>.`,
+            `Solid tackle from <b>${defender.name}</b> — <b>${carrier.name}</b> sets up the ruck.`]), "tackle", inv);
+        return doRuckPhase(st, carrier, defender, 0);
+    }
+
+    // Smashed
+    addFatigue(carrier, COST_SMASHED); addFatigue(defender, COST_BIG_HIT);
+    st.stats[dSide].tackles++;
+    st.ball.x = clamp(st.ball.x - d*(1+roll(3)), 2, 98);
+    shiftMom(st, dSide, 3);
+    ev(st, `<b>HUGE HIT!</b> <b>${defender.name}</b> smashes <b>${carrier.name}</b> backwards behind the gain line!`, "tackle", inv);
+    return doRuckPhase(st, carrier, defender, 12); // dominant-hit ruck bonus (2v2)
+}
+
+// ── KICKS in open play ──
+function doKickOpen(st){
+    const aSide = st.possession, dSide = other(aSide);
+    const atk = team(st, aSide), def = team(st, dSide);
+    const d = dirOf(st, aSide);
+    const dtl = distToLine(st, aSide), dOwn = PITCH_LEN - dtl;
+    st.stats[aSide].kicks++;
+
+    if (dOwn < 32){
+        // Clearance to touch — 10 (or 15) finds grass
+        const k = best([slotOr(atk,10,p=>p.touch_finder), slotOr(atk,15,p=>p.touch_finder)], p=>p.touch_finder);
+        const gain = 20 + k.touch_finder*0.24 + roll(12);
+        st.ball.x = clamp(st.ball.x + d*gain, 6, 94);
+        st.ball.y = st.ball.y > 35 ? 67 : 3;
+        st.throwTo = dSide; st.possession = dSide;
+        st.mode = "lineout"; st.phaseCount = 0; st.fastBall = false;
+        shiftMom(st, aSide, 1);
+        ev(st, `<b>${k.name}</b> thumps it into touch — ${Math.round(gain)}m of territory. Lineout ${def.name}.`, "",
+           [{p:k, ox:0, oy:0}]);
+        st.dt = 30; return;
+    }
+    if (dtl > 32){
+        // Box kick up the middle — contested in the air
+        const nine = slotOr(atk, 9, p=>p.box_kicking);
+        const dist = 15 + nine.box_kicking*0.15 + roll(8);
+        st.ball.x = clamp(st.ball.x + d*dist, 4, 96);
+        const receiver = best([slotOr(def,15,p=>p.high_ball), slotOr(def,14,p=>p.high_ball)], p=>p.high_ball+p.positioning);
+        const chaser = slotOr(atk, st.ball.y>35?14:11, p=>p.pace);
+        const res = resolveHighBall(receiver, chaser);
+        addFatigue(chaser, 3);
+        const inv = [{p:receiver, ox:0, oy:0},{p:chaser, ox:-d*1.5, oy:1}];
+        if (res === "reclaim"){
+            shiftMom(st, aSide, 4);
+            st.fastBall = true; st.phaseCount++;
+            ev(st, `<b>${nine.name}</b> box kicks... <b>${chaser.name}</b> climbs highest and takes it back!`, "", inv);
+        } else if (res === "spill"){
+            st.stats[aSide].turnovers++;
+            st.possession = aSide; st.mode = "scrum"; // knock-on by receiver, scrum to kicking team
+            ev(st, `<b>${receiver.name}</b> spills the high ball under pressure — knock-on! Scrum ${atk.name}.`, "turnover", inv);
+        } else {
+            st.possession = dSide; st.phaseCount = 0; st.fastBall = false;
+            ev(st, `<b>${nine.name}</b>'s box kick is safely gathered by <b>${receiver.name}</b>.`, "", inv);
+        }
+        st.dt = 25; return;
+    }
+    // Attacking third — chip / grubber in behind
+    const k = slotOr(atk, 10, p=>p.chipping+p.grubber);
+    const isChip = k.chipping >= k.grubber;
+    const skill = isChip ? k.chipping : k.grubber;
+    const fb = slotOr(def, 15, p=>p.positioning);
+    const regather = clamp(skill*0.38 + k.pace*0.12 - fb.positioning*0.25 + 8, 4, 45);
+    const landing = clamp(st.ball.x + d*(10+roll(10)), 3, 97);
+    st.ball.x = landing;
+    if (chance(regather)){
+        shiftMom(st, aSide, 4);
+        st.fastBall = true; st.phaseCount++;
+        ev(st, `<b>${k.name}</b> dinks the ${isChip?"chip":"grubber"} in behind and <b>regathers</b>! ${def.name} scrambling!`, "",
+           [{p:k, ox:0, oy:0},{p:fb, ox:d*2, oy:1}]);
+    } else {
+        st.possession = dSide; st.phaseCount = 0; st.fastBall = false;
+        ev(st, `<b>${k.name}</b> tries the ${isChip?"chip":"grubber"} but <b>${fb.name}</b> mops up for ${def.name}.`, "",
+           [{p:fb, ox:0, oy:0},{p:k, ox:-d*2, oy:0.5}]);
+    }
+    st.dt = 22;
+}
+
+// ── SET PIECES ──
+function doScrum(st){
+    const aSide = st.possession, dSide = other(aSide);
+    const atk = team(st, aSide), def = team(st, dSide);
+    const res = resolveScrum(fwds(atk), fwds(def));
+    for (const p of fwds(atk)) addFatigue(p, 5);
+    for (const p of fwds(def)) addFatigue(p, 5);
+    st.dt = 50 + roll(30);
+    const n9 = slotOr(atk, 9, p=>p.short_passing);
+    if (res.outcome === "penAtk"){
+        ev(st, `The ${atk.name} pack marches the scrum — the referee's arm goes out!`);
+        return handlePenalty(st, dSide, false, "collapses under the shove");
+    }
+    if (res.outcome === "penDef"){
+        ev(st, `The scrum wheels — ${atk.name} penalised for boring in.`);
+        return handlePenalty(st, aSide, false, "angles in illegally at the scrum");
+    }
+    if (res.outcome === "turnover"){
+        st.possession = dSide; st.stats[dSide].turnovers++;
+        st.mode = "open"; st.phaseCount = 0; st.fastBall = false;
+        shiftMom(st, dSide, 5);
+        ev(st, `<b>Shoved off their own ball!</b> ${def.name} win the scrum against the head!`, "turnover");
+        return;
+    }
+    st.mode = "open";
+    st.phaseCount = 0;
+    st.fastBall = res.outcome === "clean";
+    if (res.outcome === "clean") ev(st, `Solid scrum — <b>${n9.name}</b> feeds it away cleanly.`);
+    else ev(st, `${def.name} get a nudge on — scrappy ball for <b>${n9.name}</b>.`);
+}
+
+function doLineout(st){
+    const tSide = st.throwTo, dSide = other(tSide);
+    const atk = team(st, tSide), def = team(st, dSide);
+    st.possession = tSide;
+    const thrower = slotOr(atk, 2, p=>p.scanning+p.awareness);
+    const podOf = t => fwds(t).sort((a,b)=>(b.jumping+b.lifting)-(a.jumping+a.lifting)).slice(0,2);
+    const atkPod = podOf(atk), defPod = podOf(def);
+    const res = resolveLineout(thrower, atkPod, defPod);
+    st.dt = 35 + roll(15);
+    if (res.outcome === "overthrow"){
+        const winner = chance(50) ? tSide : dSide;
+        st.possession = winner; st.mode = "open"; st.phaseCount = 0; st.fastBall = false;
+        if (winner !== tSide) st.stats[winner].turnovers++;
+        ev(st, `<b>${thrower.name}</b> overcooks the throw — it sails over the back! ${team(st,winner).name} hack it clear and claim it.`, winner===tSide?"":"turnover");
+        return;
+    }
+    if (res.outcome === "steal"){
+        st.possession = dSide; st.stats[dSide].turnovers++;
+        st.mode = "open"; st.phaseCount = 0; st.fastBall = false;
+        shiftMom(st, dSide, 4);
+        ev(st, `<b>STOLEN!</b> <b>${defPod[0].name}</b> climbs above the pod and pinches the lineout!`, "turnover",
+           [{p:defPod[0], ox:0, oy:0},{p:atkPod[0], ox:0, oy:1.5}]);
+        return;
+    }
+    // Clean ball — maybe set the maul
+    const dtlNow = distToLine(st, tSide);
+    if (atk.tactics.commit === "high" || (dtlNow < 40 && chance(45))){
+        const m = resolveMaul(fwds(atk), fwds(def));
+        for (const p of fwds(atk)) addFatigue(p, 4);
+        for (const p of fwds(def)) addFatigue(p, 4);
+        const d = dirOf(st, tSide);
+        if (m.outcome === "penAtk"){
+            ev(st, `<b>${atkPod[0].name}</b> takes cleanly and the maul rumbles — ${def.name} drag it down!`);
+            return handlePenalty(st, dSide, dtlNow<12, "collapses the maul");
+        }
+        if (m.outcome === "penDef"){
+            ev(st, `The maul forms but ${atk.name} take it to ground themselves.`);
+            return handlePenalty(st, tSide, false, "obstruction at the front of the maul");
+        }
+        st.ball.x = clamp(st.ball.x + d*m.gain, 2, 98);
+        if (m.gain >= dtlNow && m.gain > 0){
+            const scorer = best(fwds(atk), p=>p.mauling);
+            return scoreTry(st, tSide, scorer);
+        }
+        st.mode = "open"; st.fastBall = m.gain >= 4; st.phaseCount = 1;
+        ev(st, m.gain >= 4
+            ? `<b>${atkPod[0].name}</b> claims it and the <b>maul</b> powers ${m.gain}m downfield!`
+            : `Clean take by <b>${atkPod[0].name}</b> — the maul is held, ball comes back.`,
+           "", [{p:atkPod[0], ox:0, oy:0},{p:defPod[0], ox:dirOf(st,tSide)*1.5, oy:0}]);
+        return;
+    }
+    st.mode = "open"; st.fastBall = true; st.phaseCount = 0;
+    ev(st, `<b>${thrower.name}</b> hits <b>${atkPod[0].name}</b> at the front — off the top, clean ball.`,
+       "", [{p:atkPod[0], ox:0, oy:0}]);
+}
+
+// ── PENALTY decision: posts / corner / tap ──
+function doPenaltyMode(st){
+    const aSide = st.possession, dSide = other(aSide);
+    const atk = team(st, aSide), def = team(st, dSide);
+    const d = dirOf(st, aSide);
+    const dtl = distToLine(st, aSide);
+    const kicker = best(atk.onField, p=>p.goal_kicking);
+    const goalDist = dtl + 8, offset = Math.abs(st.ball.y - 35);
+
+    if (dtl < 12 && chance(35)){
+        st.mode = "open"; st.fastBall = true; st.phaseCount = 0;
+        const tapper = slotOr(atk, 9, p=>p.acceleration);
+        ev(st, `<b>${tapper.name}</b> taps and goes quickly — ${def.name} scrambling back!`, "",
+           [{p:tapper, ox:0, oy:0}]);
+        st.dt = 12; return;
+    }
+    const maxShot = kicker.goal_kicking >= 85 ? 49 : 44;
+    if (goalDist <= maxShot && kicker.goal_kicking >= 45 && chance(goalDist <= 32 ? 90 : 70)){
+        const pc = goalKickChance(kicker, goalDist, offset);
+        st.dt = 70;
+        if (chance(pc)){
+            st.score[aSide] += 3;
+            shiftMom(st, aSide, 4);
+            ev(st, `<b>${kicker.name}</b> slots the penalty from ${Math.round(goalDist)}m. <b>${st.score.home} - ${st.score.away}</b>.`, "score-ev",
+               [{p:kicker, ox:0, oy:0}]);
+            st.mode = "kickoff"; st.kickoffBy = dSide;
+        } else {
+            ev(st, `<b>${kicker.name}</b> pushes the penalty attempt wide from ${Math.round(goalDist)}m — no score.`,
+               "", [{p:kicker, ox:0, oy:0}]);
+            // Dead ball — defence restarts from their 22
+            st.possession = dSide; st.mode = "open"; st.phaseCount = 0; st.fastBall = false;
+            const dd = dirOf(st, dSide);
+            st.ball.x = dd>0 ? 22 : 78; st.ball.y = 35;
+        }
+        return;
+    }
+    // Kick to the corner — attacking lineout
+    const tf = best(atk.onField, p=>p.touch_finder);
+    const gain = Math.min(dtl - 5, 18 + tf.touch_finder*0.2 + roll(8));
+    st.ball.x = clamp(st.ball.x + d*gain, 3, 97);
+    st.ball.y = st.ball.y > 35 ? 67 : 3;
+    st.mode = "lineout"; st.throwTo = aSide;
+    ev(st, `<b>${tf.name}</b> nudges the penalty into the corner — attacking lineout for ${atk.name}, ${Math.round(distToLine(st,aSide))}m out.`, "",
+       [{p:tf, ox:0, oy:0}]);
+    st.dt = 35;
+}
+
+// ── STEP: one discrete engine event ──
+function matchStep(st){
+    if (st.done) return [];
+    st.evs = [];
+    st.involved = [];
+    st.dt = 20;
+
+    checkSinBins(st);
+    if (st.clock > 2900) checkSubs(st);
+    // Passive recovery for everyone on the field, scaled by Work Rate (C.10)
+    for (const s of ["home","away"])
+        for (const p of team(st,s).onField)
+            p.fatigue = clamp(p.fatigue + 0.55 - PASSIVE_RECOVER*workRateFactor(p.work_rate), 0, 100);
+    st.mom *= 0.965;
+
+    switch (st.mode){
+        case "kickoff": {
+            const kSide = st.kickoffBy, rSide = other(kSide);
+            const dR = dirOf(st, rSide);
+            st.ball.x = (dR>0 ? 0 : 100) + dR*(20 + roll(16));
+            st.ball.y = 12 + roll(46);
+            st.possession = rSide; st.mode = "open";
+            st.phaseCount = 0; st.fastBall = false;
+            const rcv = slotOr(team(st,rSide), 15, p=>p.high_ball);
+            ev(st, `${team(st,kSide).name} kick off ${st.half===1?"":"the second half "}— <b>${rcv.name}</b> gathers.`,
+               "", [{p:rcv, ox:0, oy:0}]);
+            st.dt = 18;
+            break;
+        }
+        case "open": doOpen(st); break;
+        case "scrum": doScrum(st); break;
+        case "lineout": doLineout(st); break;
+        case "penalty": doPenaltyMode(st); break;
+        case "conversion": {
+            const side = st.lastTrySide || st.possession;
+            const kicker = best(team(st, side).onField, p=>p.goal_kicking);
+            const off = Math.abs(st.pendingTryY - 35);
+            const dist = 13 + off*0.35;
+            const pc = goalKickChance(kicker, dist, off*0.8);
+            if (chance(pc)){
+                st.score[side] += 2;
+                ev(st, `<b>${kicker.name}</b> adds the extras. <b>${st.score.home} - ${st.score.away}</b>.`, "score-ev",
+                   [{p:kicker, ox:0, oy:0}]);
+            } else {
+                ev(st, `<b>${kicker.name}</b>'s conversion drifts wide. <b>${st.score.home} - ${st.score.away}</b>.`,
+                   "", [{p:kicker, ox:0, oy:0}]);
+            }
+            st.mode = "kickoff"; st.kickoffBy = other(side);
+            st.ball.x = 50; st.ball.y = 35;
+            st.dt = 55;
+            break;
+        }
+    }
+
+    // Clock, possession & territory accounting
+    st.clock += st.dt;
+    st.evCount++;
+    st.stats[st.possession].poss += st.dt;
+    const homeD = dirOf(st, "home");
+    if ((homeD>0 && st.ball.x>50) || (homeD<0 && st.ball.x<50)) st.stats.home.terr += st.dt;
+    else st.stats.away.terr += st.dt;
+
+    // Half-time / full-time
+    if (st.half === 1 && st.clock >= HALF_SECONDS && st.mode !== "conversion"){
+        st.half = 2;
+        st.clock = HALF_SECONDS;
+        st.mode = "kickoff";
+        st.kickoffBy = other(st.h1Kicker);
+        for (const s of ["home","away"]) for (const p of team(st,s).players) p.fatigue = clamp(p.fatigue-25,0,100);
+        ev(st, `<b>HALF-TIME</b>: Sale Sharks ${st.score.home} - ${st.score.away} Leicester Tigers. The teams turn around.`, "score-ev");
+    }
+    if (st.clock >= FULL_SECONDS && st.mode !== "conversion"){
+        st.done = true;
+        ev(st, `<b>FULL-TIME</b>: Sale Sharks ${st.score.home} - ${st.score.away} Leicester Tigers.`, "score-ev");
+    }
+    if (st.evCount > 900) st.done = true; // hard safety stop
+    return st.evs;
+}
+
+// ── Headless harness: simulate n full matches, print score sanity numbers ──
+function simulateMatch(opts){
+    const st = createMatch(opts);
+    while (!st.done) matchStep(st);
+    return st;
+}
+function runHarness(n = 20){
+    const lines = [];
+    let hPts=0, aPts=0, hTries=0, aTries=0, pens=0, tos=0, cards=0;
+    let minP=1e9, maxP=0;
+    for (let i=0;i<n;i++){
+        const st = simulateMatch();
+        hPts += st.score.home; aPts += st.score.away;
+        hTries += st.stats.home.tries; aTries += st.stats.away.tries;
+        pens += st.stats.home.pens + st.stats.away.pens;
+        tos += st.stats.home.turnovers + st.stats.away.turnovers;
+        cards += st.stats.home.cards + st.stats.away.cards;
+        minP = Math.min(minP, st.score.home, st.score.away);
+        maxP = Math.max(maxP, st.score.home, st.score.away);
+        lines.push(`  Match ${i+1}: Sale ${st.score.home} - ${st.score.away} Leicester ` +
+            `(tries ${st.stats.home.tries}-${st.stats.away.tries}, pens conceded ${st.stats.home.pens}-${st.stats.away.pens}, ` +
+            `TO ${st.stats.home.turnovers}-${st.stats.away.turnovers})`);
+    }
+    lines.push(`— ${n} matches —`);
+    lines.push(`Avg points:  Sale ${(hPts/n).toFixed(1)}  Leicester ${(aPts/n).toFixed(1)}  (min ${minP}, max ${maxP})`);
+    lines.push(`Avg tries:   Sale ${(hTries/n).toFixed(1)}  Leicester ${(aTries/n).toFixed(1)}`);
+    lines.push(`Avg penalties/match (total): ${(pens/n).toFixed(1)}`);
+    lines.push(`Avg turnovers/match (total): ${(tos/n).toFixed(1)}`);
+    lines.push(`Avg cards/match (total): ${(cards/n).toFixed(2)}`);
+    const out = lines.join("\n");
+    console.log(out);
+    return out;
+}
+
+/* ═══════════════════════ UI ═══════════════════════ */
+/* Canvas dot visualiser with the FORMATION MODEL.
+   Rule: only players named in MATCH.involved leave their formation slot.
+   Everyone else holds a role-based home offset relative to the ball. */
+
+const W = 1040, H = 560;
+const MX = 60, MY = 30;                 // margins (in-goal areas left/right)
+const FX = (W - 2*MX) / PITCH_LEN;      // px per metre x
+const FY = (H - 2*MY) / PITCH_WID;      // px per metre y
+function px(m){ return MX + m*FX }
+function py(m){ return MY + m*FY }
+
+const canvas = document.getElementById("pitch");
+const ctx = canvas.getContext("2d");
+const momCtx = document.getElementById("mom-bar").getContext("2d");
+
+let MATCH = createMatch();
+let started = false, paused = false, timer = null;
+let msPerGameMin = 2500;
+const SPEEDS = {slow:4500, normal:2500, fast:1000};
+let ballPx = {x:px(50), y:py(35)};
+let autoPauses = {20:false, 40:false, 60:false};
+
+// Stable per-player jitter so dots in the same pod never perfectly overlap
+function jit(p, axis){
+    const h = (p.num*73 + (p.side==="home"?11:47) + (axis==="x"?0:31)) % 17;
+    return (h - 8) * 0.28; // ±2.2m
+}
+
+// ── FORMATION MODEL ──
+// Home offsets per role, relative to ball (bx,by), attack direction d.
+const FWD_LATERAL = {1:-9, 2:-5.5, 3:-2.5, 4:2.5, 5:5.5, 6:9, 7:-12.5, 8:12.5};
+function formationTargetsFor(st, t, attacking){
+    const bx = st.ball.x, by = st.ball.y;
+    const d = dirOf(st, t.side);
+    const sgn = by > 35 ? -1 : 1; // open side (more space)
+    const out = new Map();
+    const set = (p, mx, my) => out.set(p, {x: clamp(mx + jit(p,"x"), 1, 99), y: clamp(my + jit(p,"y"), 2.5, 67.5)});
+
+    for (const p of t.onField){
+        const s = p.slot;
+        if (st.mode === "scrum"){
+            // Two bound packs at the mark. Each team's pack extends AWAY from
+            // the ball, opposite to its own direction of attack (they push +d).
+            if (s <= 8){
+                const row = s<=3 ? 0 : s<=5 ? 1 : s===8 ? 2.6 : 1.6;
+                const lat = s<=3 ? (s-2)*2 : s<=5 ? (s===4?-1.2:1.2) : s===8 ? 0 : (s===6?-3.5:3.5);
+                set(p, bx - d*(1.4 + row*1.7), by + lat);
+            }
+            else if (s === 9) set(p, bx - d*(st.possession===t.side ? 2 : 7), by + 4);
+            else if (s === 15) set(p, bx - d*22, 35);
+            else if (s === 11) set(p, bx - d*10, 7);
+            else if (s === 14) set(p, bx - d*10, 63);
+            else {
+                const backOff = {10:11, 12:14, 13:17}[s] || 12;
+                set(p, bx - d*backOff, clamp(by + sgn*(backOff-4), 8, 62));
+            }
+            continue;
+        }
+        if (st.mode === "lineout"){
+            // Two parallel lines of forwards perpendicular to the touchline.
+            const touchY = by > 35 ? 66 : 4;
+            const inField = by > 35 ? -1 : 1;
+            const lineX = bx - d*1.2; // each team stands on its own side of the mark
+            if (s === 2) set(p, lineX, touchY);                        // hooker throws
+            else if (s <= 8){
+                const order = {1:0, 3:1, 4:2, 5:3, 6:4, 7:5, 8:6}[s] || 0;
+                set(p, lineX, touchY + inField*(4 + order*2.6));
+            }
+            else if (s === 9) set(p, bx - d*5, touchY + inField*13);
+            else if (s === 15) set(p, bx - d*20, 35 + inField*4);
+            else if (s === 11) set(p, bx - d*9, by > 35 ? 8 : 62);     // far wing
+            else if (s === 14) set(p, bx - d*9, by > 35 ? 20 : 50);
+            else {
+                const backOff = {10:9, 12:12, 13:15}[s] || 10;
+                set(p, bx - d*backOff, touchY + inField*(16 + (s-10)*6));
+            }
+            continue;
+        }
+        // ── Open play / rucks / penalties / kicks ──
+        if (attacking){
+            if (s <= 8) set(p, bx - d*(1.5 + (s%3)), by + FWD_LATERAL[s]);
+            else if (s === 9) set(p, bx - d*2, by + 1.5);
+            else if (s === 10) set(p, bx - d*8, by + sgn*9);
+            else if (s === 12) set(p, bx - d*10.5, by + sgn*17);
+            else if (s === 13) set(p, bx - d*13, by + sgn*25);
+            else if (s === 11) set(p, bx - d*5, 6);
+            else if (s === 14) set(p, bx - d*5, 64);
+            else set(p, bx - d*21, 35 + (by-35)*0.3); // 15 deep
+        } else {
+            // Defensive shape: flat line between ball and own try line, fullback deep
+            if (s <= 8) set(p, bx + d*3, by + FWD_LATERAL[s]*1.15);
+            else if (s === 9) set(p, bx + d*9, by);            // sweeping behind
+            else if (s === 10) set(p, bx + d*3.5, by + sgn*13);
+            else if (s === 12) set(p, bx + d*3.5, by + sgn*20);
+            else if (s === 13) set(p, bx + d*4, by + sgn*27);
+            else if (s === 11) set(p, bx + d*10, 7);
+            else if (s === 14) set(p, bx + d*10, 63);
+            else set(p, bx + d*26, 35 + (by-35)*0.4);          // 15 last line
+        }
+    }
+    return out;
+}
+
+function updateTargets(){
+    const st = MATCH;
+    const invSet = new Map();
+    for (const iv of st.involved || []) invSet.set(iv.p, iv);
+    for (const s of ["home","away"]){
+        const t = team(st, s);
+        const attacking = st.possession === s;
+        const form = formationTargetsFor(st, t, attacking);
+        for (const p of t.onField){
+            const iv = invSet.get(p);
+            if (iv){
+                p.tx = px(clamp(st.ball.x + iv.ox, 0.5, 99.5));
+                p.ty = py(clamp(st.ball.y + iv.oy, 2, 68));
+                p.involved = true;
+            } else {
+                const f = form.get(p);
+                if (f){ p.tx = px(f.x); p.ty = py(f.y); }
+                p.involved = false;
+            }
+            if (p.x === 0 && p.y === 0){ p.x = p.tx; p.y = p.ty; } // first placement
+        }
+    }
+}
+
+// ── Movement (2v2 approach: constant-speed step, fatigue-scaled) ──
+function movePlayerDot(p){
+    const speed = 2.1 * (0.55 + p.pace/220) * fatigueSpeedFactor(p) * (p.involved ? 1.45 : 1);
+    const dx = p.tx - p.x, dy = p.ty - p.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist < 1.5){ p.x = p.tx; p.y = p.ty; return; }
+    const s = Math.min(speed, dist);
+    p.x += dx/dist*s; p.y += dy/dist*s;
+}
+
+// ── Rendering ──
+function drawPitch(){
+    ctx.fillStyle = "#12240f";
+    ctx.fillRect(0,0,W,H);
+    // In-goal areas
+    ctx.fillStyle = "rgba(59,130,246,0.10)"; ctx.fillRect(8, MY-14, MX-8, H-2*MY+28);
+    ctx.fillStyle = "rgba(239,68,68,0.10)"; ctx.fillRect(W-MX, MY-14, MX-8, H-2*MY+28);
+    ctx.strokeStyle = "#274d22"; ctx.lineWidth = 2;
+    ctx.strokeRect(8, MY-14, W-16, H-2*MY+28);
+    const line = (m, alpha, w) => {
+        ctx.strokeStyle = `rgba(255,255,255,${alpha})`; ctx.lineWidth = w||1;
+        ctx.beginPath(); ctx.moveTo(px(m), MY-14); ctx.lineTo(px(m), H-MY+14); ctx.stroke();
+    };
+    line(0, 0.55, 2); line(100, 0.55, 2);   // try lines
+    line(22, 0.28); line(78, 0.28);          // 22s
+    line(50, 0.32, 1.5);                     // halfway
+    ctx.setLineDash([6,8]); line(40, 0.14); line(60, 0.14); ctx.setLineDash([]);
+    // Zone labels
+    ctx.fillStyle = "rgba(255,255,255,0.25)"; ctx.font = "10px Inter"; ctx.textAlign="center";
+    ctx.fillText("22", px(22), MY-18); ctx.fillText("50", px(50), MY-18); ctx.fillText("22", px(78), MY-18);
+}
+
+function drawDot(p){
+    const r = 8.5;
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI*2);
+    ctx.fillStyle = p.side === "home" ? "#3b82f6" : "#ef4444";
+    ctx.globalAlpha = p.involved ? 1 : 0.78;
+    ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = p.involved ? "white" : "rgba(255,255,255,0.25)";
+    ctx.lineWidth = p.involved ? 1.6 : 1;
+    ctx.stroke();
+    ctx.fillStyle = "white"; ctx.font = "bold 8px Inter";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(p.slot || p.num, p.x, p.y);
+    // Fatigue bar ONLY on involved players
+    if (p.involved){
+        const fw = 20, fx = p.x - fw/2, fy = p.y + r + 4;
+        const frac = (p.fatigue||0)/100;
+        ctx.fillStyle = "rgba(0,0,0,0.55)"; ctx.fillRect(fx, fy, fw, 3);
+        ctx.fillStyle = frac<0.4 ? "#22c55e" : frac<0.7 ? "#eab308" : "#ef4444";
+        ctx.fillRect(fx, fy, fw*(1-frac), 3);
+        ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.font = "8px Inter";
+        ctx.fillText(p.name.split(" ").pop(), p.x, p.y - r - 6);
+    }
+}
+
+function drawBall(){
+    const tX = px(MATCH.ball.x), tY = py(MATCH.ball.y);
+    ballPx.x += (tX - ballPx.x)*0.09;
+    ballPx.y += (tY - ballPx.y)*0.09;
+    ctx.beginPath(); ctx.arc(ballPx.x, ballPx.y - 4, 4.5, 0, Math.PI*2);
+    ctx.fillStyle = "white"; ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(ballPx.x, ballPx.y - 4, 7.5, 0, Math.PI*2); ctx.stroke();
+}
+
+function renderFrame(){
+    updateTargets();
+    ctx.clearRect(0,0,W,H);
+    drawPitch();
+    for (const s of ["away","home"])
+        for (const p of team(MATCH, s).onField){ movePlayerDot(p); }
+    for (const s of ["away","home"])
+        for (const p of team(MATCH, s).onField) drawDot(p);
+    drawBall();
+    requestAnimationFrame(renderFrame);
+}
+
+// ── HUD / commentary / stats ──
+function addComm(text, cls, minute){
+    const el = document.createElement("div");
+    el.className = "comm" + (cls?" "+cls:"");
+    el.innerHTML = `<span class="min">${minute}'</span>` + text;
+    const box = document.getElementById("comm");
+    box.appendChild(el);
+    while (box.children.length > 220) box.removeChild(box.firstChild);
+    box.scrollTop = 1e9;
+}
+function flash(text, color){
+    const el = document.getElementById("flash");
+    el.textContent = text; el.style.color = color||"white";
+    el.classList.add("show");
+    setTimeout(()=>el.classList.remove("show"), 1800);
+}
+function fmtClock(sec){
+    const m = Math.floor(sec/60), s = Math.floor(sec%60);
+    return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+}
+function updateHUD(){
+    const st = MATCH;
+    document.getElementById("score").textContent = `${st.score.home} - ${st.score.away}`;
+    document.getElementById("clock").innerHTML =
+        `${fmtClock(st.clock)} &middot; ${st.done?"Full time":st.half===1?"1st Half":"2nd Half"}`;
+    document.getElementById("phase-info").textContent =
+        st.mode === "open" ? `${team(st,st.possession).name} in possession — phase ${st.phaseCount}`
+        : st.mode.charAt(0).toUpperCase()+st.mode.slice(1);
+    const tot = st.stats.home.poss + st.stats.away.poss || 1;
+    document.getElementById("st-poss-h").textContent = Math.round(st.stats.home.poss/tot*100)+"%";
+    document.getElementById("st-poss-a").textContent = Math.round(st.stats.away.poss/tot*100)+"%";
+    const terrTot = st.stats.home.terr + st.stats.away.terr || 1;
+    document.getElementById("st-terr-h").textContent = Math.round(st.stats.home.terr/terrTot*100)+"%";
+    document.getElementById("st-terr-a").textContent = Math.round(st.stats.away.terr/terrTot*100)+"%";
+    document.getElementById("st-tries-h").textContent = st.stats.home.tries;
+    document.getElementById("st-tries-a").textContent = st.stats.away.tries;
+    document.getElementById("st-tack-h").textContent = st.stats.home.tackles;
+    document.getElementById("st-tack-a").textContent = st.stats.away.tackles;
+    document.getElementById("st-to-h").textContent = st.stats.home.turnovers;
+    document.getElementById("st-to-a").textContent = st.stats.away.turnovers;
+    document.getElementById("st-pen-h").textContent = st.stats.home.pens;
+    document.getElementById("st-pen-a").textContent = st.stats.away.pens;
+    // Momentum bar
+    momCtx.clearRect(0,0,200,10);
+    momCtx.fillStyle = "#1a2230"; momCtx.fillRect(0,0,200,10);
+    const m = st.mom; // -30..30
+    if (m >= 0){ momCtx.fillStyle = "#3b82f6"; momCtx.fillRect(100, 0, m/30*100, 10); }
+    else { momCtx.fillStyle = "#ef4444"; momCtx.fillRect(100 + m/30*100, 0, -m/30*100, 10); }
+    momCtx.fillStyle = "rgba(255,255,255,0.4)"; momCtx.fillRect(99,0,2,10);
+}
+
+// ── Match runner ──
+function stepAndSchedule(){
+    if (paused || MATCH.done) return;
+    const evs = matchStep(MATCH);
+    for (const e of evs){
+        addComm(e.text, e.cls, Math.min(80, Math.floor(e.t/60)));
+        if (e.cls === "try") flash("TRY!", "#22c55e");
+        else if (e.cls === "turnover") flash("TURNOVER", "#f97316");
+        else if (e.cls === "card") flash("YELLOW CARD", "#eab308");
+        else if (e.cls === "red-card") flash("RED CARD", "#ef4444");
+        else if (e.cls === "penalty") flash("PENALTY", "#eab308");
+    }
+    updateHUD();
+    if (MATCH.done){
+        document.getElementById("btn-start").textContent = "Full Time";
+        flash("FULL TIME", "#3b82f6");
+        return;
+    }
+    // Tactical pauses at 20' / 40' (HT) / 60'
+    const min = MATCH.clock/60;
+    for (const mark of [20,40,60]){
+        if (min >= mark && !autoPauses[mark]){
+            autoPauses[mark] = true;
+            showOverlay(mark === 40 ? "Half-Time" : `Tactical Pause — ${mark} minutes`,
+                        `Sale Sharks ${MATCH.score.home} - ${MATCH.score.away} Leicester Tigers. Adjust the game plan, then resume.`);
+            return;
+        }
+    }
+    const delay = clamp(MATCH.dt/60 * msPerGameMin, 220, 6000);
+    timer = setTimeout(stepAndSchedule, delay);
+}
+
+function startMatch(){
+    if (started) return;
+    started = true;
+    document.getElementById("btn-start").textContent = "Playing...";
+    addComm(`Welcome to the Salford Community Stadium — <b>Sale Sharks</b> host <b>Leicester Tigers</b>. ${MATCH.teams[MATCH.kickoffBy].name} to kick off.`, "", 0);
+    updateHUD();
+    stepAndSchedule();
+}
+function togglePause(){
+    if (!started || MATCH.done) return;
+    paused = !paused;
+    document.getElementById("btn-pause").textContent = paused ? "Resume" : "Pause";
+    if (!paused) stepAndSchedule(); else clearTimeout(timer);
+}
+function setSpeed(k){
+    msPerGameMin = SPEEDS[k];
+    for (const id of ["sp-slow","sp-normal","sp-fast"]) document.getElementById(id).classList.remove("active");
+    document.getElementById("sp-"+ (k==="slow"?"slow":k==="fast"?"fast":"normal")).classList.add("active");
+}
+function showOverlay(title, sub){
+    paused = true; clearTimeout(timer);
+    document.getElementById("ov-title").textContent = title;
+    document.getElementById("ov-sub").textContent = sub;
+    document.getElementById("overlay").classList.add("show");
+}
+function resumeFromOverlay(){
+    // Feed the dropdowns into Sale's live tactics (engine weights)
+    const t = MATCH.teams.home.tactics;
+    t.kick = document.getElementById("tac-kick").value;
+    t.width = document.getElementById("tac-width").value;
+    t.commit = document.getElementById("tac-commit").value;
+    document.getElementById("overlay").classList.remove("show");
+    paused = false;
+    addComm(`Tactics updated: kick <b>${t.kick}</b>, width <b>${t.width}</b>, breakdown <b>${t.commit}</b>.`, "", Math.floor(MATCH.clock/60));
+    stepAndSchedule();
+}
+
+// ── Init ──
+updateTargets();
+for (const s of ["home","away"]) for (const p of team(MATCH,s).onField){ p.x = p.tx; p.y = p.ty; }
+updateHUD();
+requestAnimationFrame(renderFrame);
+</script>
+</body>
+</html>
